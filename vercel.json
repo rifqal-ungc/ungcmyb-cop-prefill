@@ -1,7 +1,6 @@
 {
   "functions": {
-    "api/*.py": {
-      "runtime": "python3.12"
-    }
+    "api/companies.py": { "maxDuration": 15 },
+    "api/generate.py":  { "maxDuration": 60 }
   }
 }
