@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoP 2026 Pre-Fill Tool — UNGC Malaysia</title>
+  <style>
+    :root {
+      --blue-dark:  #1E3250;
+      --blue-mid:   #4C6B8B;
+      --blue-light: #699CC6;
+      --blue-pale:  #AECFE6;
+      --green:      #297D6D;
+      --gold:       #CCB146;
+      --purple:     #6E417A;
+      --red:        #EC3740;
+      --white:      #ffffff;
+      --off-white:  #f5f8fb;
+      --border:     #d0dce8;
+      --text:       #1a2b3c;
+      --text-muted: #6b7a8d;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Flama', 'Barlow', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--off-white);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      background: var(--blue-dark);
+      color: var(--white);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      height: 64px;
+      gap: 1rem;
+    }
+    header .logo-mark {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--blue-light);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--white);
+      flex-shrink: 0;
+    }
+    header .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    header .header-text p {
+      font-size: 11px;
+      color: var(--blue-pale);
+      margin-top: 1px;
+    }
+    .header-badge {
+      margin-left: auto;
+      background: var(--green);
+      color: var(--white);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── Main layout ────────────────────────────────────── */
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--blue-dark);
+      margin-bottom: 0.4rem;
+    }
+    .card .subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Autocomplete ───────────────────────────────────── */
+    .autocomplete-wrapper {
+      position: relative;
+      margin-bottom: 1.25rem;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--blue-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    #company-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      color: var(--text);
+    }
+    #company-input:focus {
+      border-color: var(--blue-light);
+      box-shadow: 0 0 0 3px rgba(105, 156, 198, 0.15);
+    }
+    #company-input.has-selection {
+      border-color: var(--green);
+    }
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 4px 16px rgba(30, 50, 80, 0.12);
+      display: none;
+    }
+    .dropdown.open { display: block; }
+    .dropdown-item {
+      padding: 9px 14px;
+      font-size: 13.5px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f4f8;
+      transition: background 0.1s;
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover, .dropdown-item.active {
+      background: var(--off-white);
+      color: var(--blue-dark);
+    }
+    .dropdown-item mark {
+      background: none;
+      color: var(--blue-light);
+      font-weight: 700;
+    }
+    .dropdown-empty {
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── COP year context ───────────────────────────────── */
+    .context-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .context-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      background: var(--off-white);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      color: var(--text-muted);
+    }
+    .context-chip span.dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+    }
+
+    /* ── Generate button ────────────────────────────────── */
+    #generate-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--blue-dark);
+      color: var(--white);
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #generate-btn:hover:not(:disabled) { background: var(--blue-mid); }
+    #generate-btn:disabled {
+      background: var(--border);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Status bar ─────────────────────────────────────── */
+    #status-bar {
+      display: none;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-top: 1rem;
+      font-weight: 500;
+    }
+    #status-bar.error {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #b91c1c;
+      display: block;
+    }
+    #status-bar.success {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      color: #15803d;
+      display: block;
+    }
+
+    /* ── Results ────────────────────────────────────────── */
+    #results { display: none; }
+    .stats-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-box {
+      flex: 1;
+      background: var(--off-white);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-box .stat-num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--blue-dark);
+      line-height: 1;
+    }
+    .stat-box.good .stat-num { color: var(--green); }
+    .stat-box.warn .stat-num { color: var(--gold); }
+    .stat-box .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    /* ── Pending list ───────────────────────────────────── */
+    .pending-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .pending-header h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--blue-dark);
+    }
+    #copy-btn {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    #copy-btn:hover {
+      border-color: var(--blue-light);
+      color: var(--blue-dark);
+    }
+    #copy-btn.copied {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .section-group { margin-bottom: 1.25rem; }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .pending-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 10px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      margin-bottom: 5px;
+      background: var(--white);
+    }
+    .qid-badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--blue-dark);
+      color: var(--white);
+      border-radius: 3px;
+      padding: 2px 7px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .q-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    /* ── Loading overlay ────────────────────────────────── */
+    #loading-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 0.5rem;
+      display: none;
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 500px) {
+      .stats-row { flex-direction: column; }
+      main { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">UN</div>
+  <div class="header-text">
+    <h1>CoP 2026 Pre-Fill Tool</h1>
+    <p>UN Global Compact Malaysia</p>
+  </div>
+  <div class="header-badge">Internal</div>
+</header>
+
+<main>
+  <!-- ── Input card ── -->
+  <div class="card">
+    <h2>Generate Pre-Filled Questionnaire</h2>
+    <p class="subtitle">
+      Select a Malaysia member company to pre-fill the 2026 CoP Excel with their 2025 submission data.
+    </p>
+
+    <div class="context-row">
+      <div class="context-chip">
+        <span class="dot"></span>
+        Source: 2025 CoP Submissions
+      </div>
+      <div class="context-chip">
+        <span class="dot"></span>
+        Target: 2026 Excel Template
+      </div>
+    </div>
+
+    <label for="company-input">Company Name</label>
+    <div class="autocomplete-wrapper">
+      <input
+        id="company-input"
+        type="text"
+        placeholder="Type to search companies…"
+        autocomplete="off"
+        disabled
+      />
+      <div id="dropdown" class="dropdown" role="listbox"></div>
+    </div>
+
+    <button id="generate-btn" disabled>
+      <div class="spinner" id="spinner"></div>
+      <span id="btn-text">Download Pre-Filled Excel</span>
+    </button>
+
+    <div id="loading-count"></div>
+    <div id="status-bar"></div>
+  </div>
+
+  <!-- ── Results card ── -->
+  <div class="card" id="results">
+    <h2>Results</h2>
+    <p class="subtitle" id="results-subtitle"></p>
+
+    <div class="stats-row">
+      <div class="stat-box good">
+        <div class="stat-num" id="stat-filled">–</div>
+        <div class="stat-label">Questions Pre-Filled</div>
+      </div>
+      <div class="stat-box warn">
+        <div class="stat-num" id="stat-pending">–</div>
+        <div class="stat-label">Need Manual Input</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="stat-total">–</div>
+        <div class="stat-label">Total Questions</div>
+      </div>
+    </div>
+
+    <div id="pending-section" style="display:none">
+      <div class="pending-header">
+        <h3>Questions Requiring Manual Input</h3>
+        <button id="copy-btn">Copy list</button>
+      </div>
+      <div id="pending-list"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const BASE = '';  // same-origin
+  let allCompanies = [];
+  let selectedCompany = null;
+  let dropdownActive = -1;
+
+  const input     = document.getElementById('company-input');
+  const dropdown  = document.getElementById('dropdown');
+  const genBtn    = document.getElementById('generate-btn');
+  const spinner   = document.getElementById('spinner');
+  const btnText   = document.getElementById('btn-text');
+  const statusBar = document.getElementById('status-bar');
+  const loadCount = document.getElementById('loading-count');
+
+  // ── Load companies ─────────────────────────────────────────
+  async function loadCompanies() {
+    try {
+      const res = await fetch(BASE + '/api/companies');
+      allCompanies = await res.json();
+      input.disabled = false;
+      input.placeholder = `Search ${allCompanies.length} companies…`;
+    } catch (e) {
+      showStatus('error', 'Failed to load company list. Please refresh.');
+    }
+  }
+  loadCompanies();
+
+  // ── Autocomplete ───────────────────────────────────────────
+  function highlightMatch(text, query) {
+    if (!query) return text;
+    const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(re, '<mark>$1</mark>');
+  }
+
+  function renderDropdown(query) {
+    const q = query.toLowerCase().trim();
+    const filtered = q
+      ? allCompanies.filter(c => c.toLowerCase().includes(q)).slice(0, 80)
+      : allCompanies.slice(0, 80);
+
+    if (!filtered.length) {
+      dropdown.innerHTML = '<div class="dropdown-empty">No companies found</div>';
+    } else {
+      dropdown.innerHTML = filtered.map((c, i) =>
+        `<div class="dropdown-item" data-name="${c}" data-idx="${i}" role="option">
+          ${highlightMatch(c, q)}
+        </div>`
+      ).join('');
+    }
+    dropdown.classList.add('open');
+    dropdownActive = -1;
+  }
+
+  input.addEventListener('input', () => {
+    selectedCompany = null;
+    input.classList.remove('has-selection');
+    genBtn.disabled = true;
+    renderDropdown(input.value);
+  });
+
+  input.addEventListener('focus', () => {
+    if (allCompanies.length) renderDropdown(input.value);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.autocomplete-wrapper')) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  dropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+    selectCompany(item.dataset.name);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = dropdown.querySelectorAll('.dropdown-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      dropdownActive = Math.min(dropdownActive + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('active', i === dropdownActive));
+      items[dropdownActive]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      dropdownActive = Math.max(dropdownActive - 1, 0);
+      items.forEach((el, i) => el.classList.toggle('active', i === dropdownActive));
+      items[dropdownActive]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && dropdownActive >= 0) {
+      e.preventDefault();
+      selectCompany(items[dropdownActive].dataset.name);
+    } else if (e.key === 'Escape') {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  function selectCompany(name) {
+    selectedCompany = name;
+    input.value = name;
+    input.classList.add('has-selection');
+    dropdown.classList.remove('open');
+    genBtn.disabled = false;
+    clearStatus();
+  }
+
+  // ── Generate ───────────────────────────────────────────────
+  genBtn.addEventListener('click', async () => {
+    if (!selectedCompany) return;
+    setLoading(true);
+    clearStatus();
+    document.getElementById('results').style.display = 'none';
+
+    try {
+      const res = await fetch(BASE + '/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_name: selectedCompany }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Server error');
+      }
+
+      // Trigger download
+      const bytes = Uint8Array.from(atob(data.excel_base64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showStatus('success', `✓ Pre-filled Excel downloaded for "${selectedCompany}"`);
+      renderResults(data);
+
+    } catch (e) {
+      showStatus('error', 'Error: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // ── Results ────────────────────────────────────────────────
+  function renderResults(data) {
+    const results = document.getElementById('results');
+    document.getElementById('stat-filled').textContent = data.total_filled;
+    document.getElementById('stat-pending').textContent = data.pending.length;
+    document.getElementById('stat-total').textContent = data.total_questions;
+    document.getElementById('results-subtitle').textContent =
+      `${selectedCompany} — ${data.total_filled} of ${data.total_questions} questions pre-filled from 2025 data.`;
+
+    const pendingSection = document.getElementById('pending-section');
+    const pendingList    = document.getElementById('pending-list');
+
+    if (!data.pending.length) {
+      pendingSection.style.display = 'none';
+    } else {
+      pendingSection.style.display = 'block';
+
+      // Group by section
+      const grouped = {};
+      data.pending.forEach(q => {
+        const sec = q.section || 'Other';
+        if (!grouped[sec]) grouped[sec] = [];
+        grouped[sec].push(q);
+      });
+
+      pendingList.innerHTML = Object.entries(grouped).map(([section, qs]) => `
+        <div class="section-group">
+          <div class="section-label">${section}</div>
+          ${qs.map(q => `
+            <div class="pending-item">
+              <div class="qid-badge">${q.qid}</div>
+              <div class="q-text">${escapeHtml(truncate(q.text, 150))}</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    results.style.display = 'block';
+    setupCopyBtn(data.pending);
+  }
+
+  function setupCopyBtn(pending) {
+    const btn = document.getElementById('copy-btn');
+    btn.classList.remove('copied');
+    btn.textContent = 'Copy list';
+    btn.onclick = () => {
+      const text = pending.map(q =>
+        `[${q.section}] ${q.qid} — ${q.text}`
+      ).join('\n');
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied ✓';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy list'; btn.classList.remove('copied'); }, 2000);
+      });
+    };
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function setLoading(on) {
+    genBtn.disabled = on;
+    spinner.style.display = on ? 'block' : 'none';
+    btnText.textContent = on ? 'Generating…' : 'Download Pre-Filled Excel';
+    loadCount.style.display = on ? 'block' : 'none';
+    if (on) loadCount.textContent = 'Fetching data and filling template…';
+  }
+
+  function showStatus(type, msg) {
+    statusBar.className = type;
+    statusBar.textContent = msg;
+  }
+  function clearStatus() {
+    statusBar.className = '';
+    statusBar.textContent = '';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function truncate(s, n) {
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+</script>
+
+</body>
+</html>
