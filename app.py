@@ -102,17 +102,27 @@ def fill_sheet(ws, subs):
                     break
 
         elif choice and not subq:
-            # Checkbox question
+            # Standalone checkbox (❑) or radio (🔾) in column B
             for i in range(q_row, end_row):
                 cell = all_rows[i][1] if len(all_rows[i]) > 1 else None
-                if cell and cell.value and str(cell.value).startswith(CHECKBOX):
-                    option_text = str(cell.value)[1:].strip()
+                if not cell or not cell.value:
+                    continue
+                val = str(cell.value)
+                if val.startswith(CHECKBOX):
+                    option_text = val[len(CHECKBOX):].strip()
                     if texts_match(choice, option_text):
                         cell.value = CHECKED + ' ' + option_text
                         success = True
+                        # No break — multiple checkboxes may be selected
+                elif val.startswith(RADIO):
+                    option_text = val[len(RADIO):].strip()
+                    if texts_match(choice, option_text):
+                        cell.value = SELECTED + ' ' + option_text
+                        success = True
+                        break  # Radio — only one selection
 
         elif choice and subq:
-            # Matrix question
+            # Matrix question — find header row, then data row by subquestion
             header_row = None
             header_cols = {}
             for i in range(q_row + 1, end_row):
@@ -126,24 +136,62 @@ def fill_sheet(ws, subs):
                             header_cols[j] = str(cell.value)
                     break
 
-            if header_row is not None:
-                target_col = None
-                for col_idx, header_text in header_cols.items():
-                    if texts_match(choice, header_text):
-                        target_col = col_idx
+            if header_row is None:
+                pass  # fall through to unfilled
+            else:
+                # Find the data row matching the subquestion label
+                target_data_row = None
+                for i in range(header_row + 1, end_row):
+                    label = all_rows[i][1].value if len(all_rows[i]) > 1 else None
+                    if label and texts_match(subq, str(label)):
+                        target_data_row = i
                         break
 
-                if target_col is not None:
-                    for i in range(header_row + 1, end_row):
-                        row = all_rows[i]
-                        label = row[1].value if len(row) > 1 else None
-                        if label and texts_match(subq, str(label)):
-                            if len(row) > target_col:
-                                cell = row[target_col]
-                                if str(cell.value or '').strip() == RADIO:
-                                    cell.value = SELECTED
-                                    success = True
+                if target_data_row is not None:
+                    data_row = all_rows[target_data_row]
+
+                    # Try to match choice to a column header
+                    target_col = None
+                    for col_idx, header_text in header_cols.items():
+                        if texts_match(choice, header_text):
+                            target_col = col_idx
                             break
+
+                    if target_col is not None:
+                        # Standard matrix: mark radio (🔾→🔘) or checkbox (❑→☑)
+                        if len(data_row) > target_col:
+                            cell = data_row[target_col]
+                            cell_val = str(cell.value or '').strip()
+                            if cell_val == RADIO:
+                                cell.value = SELECTED
+                                success = True
+                            elif cell_val == CHECKBOX:
+                                cell.value = CHECKED
+                                success = True
+
+                    elif choice.lower() == 'known' and response:
+                        # Numeric/text input: write response into ___ cell
+                        for j in range(2, len(data_row)):
+                            cell = data_row[j]
+                            if '_' in str(cell.value or ''):
+                                cell.value = response
+                                success = True
+                                break
+
+                    elif choice.lower() in ('unknown', 'not applicable'):
+                        # Select the "Unknown" or "Not applicable" radio/checkbox
+                        for col_idx, header_text in header_cols.items():
+                            if normalize(header_text) in ('unknown', 'not applicable'):
+                                if len(data_row) > col_idx:
+                                    cell = data_row[col_idx]
+                                    cell_val = str(cell.value or '').strip()
+                                    if cell_val == RADIO:
+                                        cell.value = SELECTED
+                                        success = True
+                                    elif cell_val == CHECKBOX:
+                                        cell.value = CHECKED
+                                        success = True
+                                break
 
         if success:
             filled_qids.append(parent_qid if parent_qid != qid else qid)
