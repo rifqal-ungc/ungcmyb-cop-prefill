@@ -165,6 +165,13 @@ def get_all_excel_qids(wb):
     return results
 
 
+@app.route('/')
+def index():
+    html_path = os.path.join(os.path.dirname(__file__), 'index.html')
+    with open(html_path, encoding='utf-8') as f:
+        return f.read(), 200, {'Content-Type': 'text/html; charset=utf-8'}
+
+
 @app.after_request
 def cors(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
