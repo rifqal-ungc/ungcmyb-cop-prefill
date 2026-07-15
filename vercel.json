@@ -1,6 +1,6 @@
 {
-  "functions": {
-    "api/companies.py": { "maxDuration": 15 },
-    "api/generate.py":  { "maxDuration": 60 }
-  }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/app.py" },
+    { "src": "/(.*)",     "dest": "/$1" }
+  ]
 }
