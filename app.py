@@ -22,6 +22,18 @@ Q_PATTERN = re.compile(
 )
 SUFFIX_PATTERN = re.compile(r'^(.*?\d+)([A-Z]+)$')
 
+# Maps 2025 question IDs → 2026 question IDs where numbering shifted between years.
+# Derived by matching text_question from Supabase against 2026 Excel question texts.
+QUESTION_ID_MAP_2025_TO_2026 = {
+    # Governance: new G12 (financing/investment) inserted, pushing reporting + assurance up by 1
+    'G12': 'G13',   # "Do you produce sustainability reporting according to" → 2026 G13
+    'G13': 'G14',   # "Is information assured by a third-party" → 2026 G14
+    # Environment: Scope 1/2 measurement added as E5, reorganisation of climate/nature section
+    'E5':  'E7',    # "Does company have GHG target validated by third-party" → 2026 E7
+    'E7':  'E8',    # "Does company have a climate adaptation plan" → 2026 E8
+    'E10': 'E11',   # "Material environmental topics" → 2026 E11
+}
+
 CHECKBOX = '❑'
 CHECKED  = '☑'
 RADIO    = '🔾'
@@ -266,6 +278,12 @@ def generate():
             if key not in seen:
                 seen.add(key)
                 unique_subs.append(s)
+
+        # Remap 2025 question IDs that shifted in 2026 questionnaire
+        for s in unique_subs:
+            mapped = QUESTION_ID_MAP_2025_TO_2026.get(s['question_id'])
+            if mapped:
+                s['question_id'] = mapped
 
         # Group by section
         by_section = {}
