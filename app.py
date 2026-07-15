@@ -4,8 +4,8 @@ from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://qlvlpvgyjoeprvghmoyn.supabase.co')
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://qlvlpvgyjoeprvghmoyn.supabase.co').lstrip('﻿').strip()
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').lstrip('﻿').strip()
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'api', 'template.xlsx')
 
 SHEET_SECTION_MAP = {
