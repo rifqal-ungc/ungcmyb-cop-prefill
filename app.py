@@ -8,30 +8,52 @@ SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://qlvlpvgyjoeprvghmoyn.supa
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').lstrip('﻿').strip()
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'api', 'template.xlsx')
 
+# Supabase section name → Excel sheet name
 SHEET_SECTION_MAP = {
     'Governance':               ' Governance',
     'Human Rights and Labour':  'Human Rights & Labour',
     'Environment':              'Environment',
     'Anti-Corruption':          ' Anti-Corruption',
     'CEO Statement':            'CEO Statement',
+    'Sustainability Report':    None,  # no fillable sheet in template
 }
 
+# CEO Statement section has S1/S2 (Success Stories) and C1/C2 (statement form).
+# S-prefixed questions go to the Success Stories sheet; C-prefixed to CEO Statement.
+SUCCESS_STORIES_SHEET = 'Success Stories & Future Priori'
+SUCCESS_STORIES_Q_PREFIX = re.compile(r'^S\d+')
+
 Q_PATTERN = re.compile(
-    r'^(G\d+(?:\.\d+)?|HR/L\d+(?:\.\d+)?|E\d+(?:\.\d+)?|AC\d+(?:\.\d+)?'
+    r'^(?:\(Optional\)\s*)?'
+    r'(G\d+(?:\.\d+)?|HR/L\d+(?:\.\d+)?|E\d+(?:\.\d+)?|AC\d+(?:\.\d+)?'
     r'|C\d+|S\d+|R\d+)[.\s]'
 )
 SUFFIX_PATTERN = re.compile(r'^(.*?\d+)([A-Z]+)$')
 
 # Maps 2025 question IDs → 2026 question IDs where numbering shifted between years.
-# Derived by matching text_question from Supabase against 2026 Excel question texts.
 QUESTION_ID_MAP_2025_TO_2026 = {
-    # Governance: new G12 (financing/investment) inserted, pushing reporting + assurance up by 1
+    # Governance: new G12 (financing/investment) inserted, pushing G12/G13 up by 1
     'G12': 'G13',   # "Do you produce sustainability reporting according to" → 2026 G13
     'G13': 'G14',   # "Is information assured by a third-party" → 2026 G14
-    # Environment: Scope 1/2 measurement added as E5, reorganisation of climate/nature section
+    # Environment: Scope 1/2 measurement added as E5; climate/nature section reorganised
     'E5':  'E7',    # "Does company have GHG target validated by third-party" → 2026 E7
     'E7':  'E8',    # "Does company have a climate adaptation plan" → 2026 E8
     'E10': 'E11',   # "Material environmental topics" → 2026 E11
+}
+
+# Maps 2025 choice/subquestion texts → 2026 equivalents where option wording changed.
+CHOICE_TEXT_MAP_2025_TO_2026 = {
+    # G2/G3/G4/G5/G6/G7/G8 — broadest scope option renamed between 2025 and 2026
+    'yes, focused on our own operations and the value chain (e.g., suppliers, consumers, communities, other business relationships)':
+        'yes, focused on employees and the value chain (e.g., suppliers, consumers, communities, other business relationships)',
+    'yes, focused on our own operations and the value chain':
+        'yes, focused on employees and the value chain',
+}
+
+# Subquestion label normalization — slashes with/without spaces, abbreviations
+SUBQ_TEXT_MAP_2025_TO_2026 = {
+    'labour rights/decent work': 'labour rights / decent work',
+    'human rights and labour':   'human rights & labour',
 }
 
 CHECKBOX = '❑'
@@ -54,10 +76,24 @@ def normalize(s):
                   .replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' '))
 
 
+def remap_choice(text):
+    """Apply 2025→2026 choice text remapping."""
+    key = normalize(text)
+    return CHOICE_TEXT_MAP_2025_TO_2026.get(key, key)
+
+
+def remap_subq(text):
+    """Apply 2025→2026 subquestion label remapping."""
+    key = normalize(text)
+    return SUBQ_TEXT_MAP_2025_TO_2026.get(key, key)
+
+
 def texts_match(a, b):
+    """Match two option/label texts after normalization."""
     a, b = normalize(a), normalize(b)
     if not a or not b:
         return False
+    # Exact match or one is a prefix of the other (handles truncated Supabase strings)
     return a == b or b.startswith(a) or a.startswith(b)
 
 
@@ -81,10 +117,14 @@ def fill_sheet(ws, subs):
     filled_qids = []
 
     for sub in subs:
-        qid     = sub['question_id']
-        choice  = str(sub.get('choice', '')      or '').strip()
-        subq    = str(sub.get('subquestion', '') or '').strip()
-        response = str(sub.get('response', '')   or '').strip()
+        qid      = sub['question_id']
+        choice   = str(sub.get('choice', '')      or '').strip()
+        subq     = str(sub.get('subquestion', '') or '').strip()
+        response = str(sub.get('response', '')    or '').strip()
+
+        # Apply choice/subquestion text remapping
+        choice_norm = remap_choice(choice)
+        subq_norm   = remap_subq(subq)
 
         q_row = q_dict.get(qid)
         parent_qid = qid
@@ -122,13 +162,12 @@ def fill_sheet(ws, subs):
                 val = str(cell.value)
                 if val.startswith(CHECKBOX):
                     option_text = val[len(CHECKBOX):].strip()
-                    if texts_match(choice, option_text):
+                    if texts_match(choice_norm, normalize(option_text)):
                         cell.value = CHECKED + ' ' + option_text
                         success = True
-                        # No break — multiple checkboxes may be selected
                 elif val.startswith(RADIO):
                     option_text = val[len(RADIO):].strip()
-                    if texts_match(choice, option_text):
+                    if texts_match(choice_norm, normalize(option_text)):
                         cell.value = SELECTED + ' ' + option_text
                         success = True
                         break  # Radio — only one selection
@@ -145,32 +184,29 @@ def fill_sheet(ws, subs):
                     header_row = i
                     for j, cell in enumerate(row):
                         if j >= 2 and cell.value:
-                            header_cols[j] = str(cell.value)
+                            header_cols[j] = normalize(str(cell.value))
                     break
 
-            if header_row is None:
-                pass  # fall through to unfilled
-            else:
+            if header_row is not None:
                 # Find the data row matching the subquestion label
                 target_data_row = None
                 for i in range(header_row + 1, end_row):
                     label = all_rows[i][1].value if len(all_rows[i]) > 1 else None
-                    if label and texts_match(subq, str(label)):
+                    if label and texts_match(subq_norm, normalize(str(label))):
                         target_data_row = i
                         break
 
                 if target_data_row is not None:
                     data_row = all_rows[target_data_row]
 
-                    # Try to match choice to a column header
+                    # Match choice to a column header (use remapped choice_norm)
                     target_col = None
                     for col_idx, header_text in header_cols.items():
-                        if texts_match(choice, header_text):
+                        if texts_match(choice_norm, header_text):
                             target_col = col_idx
                             break
 
                     if target_col is not None:
-                        # Standard matrix: mark radio (🔾→🔘) or checkbox (❑→☑)
                         if len(data_row) > target_col:
                             cell = data_row[target_col]
                             cell_val = str(cell.value or '').strip()
@@ -182,7 +218,6 @@ def fill_sheet(ws, subs):
                                 success = True
 
                     elif choice.lower() == 'known' and response:
-                        # Numeric/text input: write response into ___ cell
                         for j in range(2, len(data_row)):
                             cell = data_row[j]
                             if '_' in str(cell.value or ''):
@@ -191,7 +226,6 @@ def fill_sheet(ws, subs):
                                 break
 
                     elif choice.lower() in ('unknown', 'not applicable'):
-                        # Select the "Unknown" or "Not applicable" radio/checkbox
                         for col_idx, header_text in header_cols.items():
                             if normalize(header_text) in ('unknown', 'not applicable'):
                                 if len(data_row) > col_idx:
@@ -213,7 +247,12 @@ def fill_sheet(ws, subs):
 
 def get_all_excel_qids(wb):
     results = []
-    for section, sheet_name in SHEET_SECTION_MAP.items():
+    sheets_to_scan = list(SHEET_SECTION_MAP.items()) + [('Success Stories', SUCCESS_STORIES_SHEET)]
+    seen_sheets = set()
+    for section, sheet_name in sheets_to_scan:
+        if not sheet_name or sheet_name in seen_sheets:
+            continue
+        seen_sheets.add(sheet_name)
         try:
             ws = wb[sheet_name]
         except KeyError:
@@ -285,16 +324,24 @@ def generate():
             if mapped:
                 s['question_id'] = mapped
 
-        # Group by section
+        # Group by section, but split CEO Statement → Success Stories (S*) vs CEO sheet (C*)
         by_section = {}
         for s in unique_subs:
-            by_section.setdefault(s.get('section', ''), []).append(s)
+            section = s.get('section', '')
+            qid = s['question_id']
+            if section == 'CEO Statement' and SUCCESS_STORIES_Q_PREFIX.match(qid):
+                section = '_SuccessStories'
+            by_section.setdefault(section, []).append(s)
 
         # Fill template
         wb = load_workbook(TEMPLATE_PATH)
         all_filled = []
+
         for section, section_subs in by_section.items():
-            sheet_name = SHEET_SECTION_MAP.get(section)
+            if section == '_SuccessStories':
+                sheet_name = SUCCESS_STORIES_SHEET
+            else:
+                sheet_name = SHEET_SECTION_MAP.get(section)
             if not sheet_name:
                 continue
             try:
