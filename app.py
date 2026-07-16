@@ -540,6 +540,82 @@ TEXT_FIELDS = {
 }
 
 # ---------------------------------------------------------------------------
+# Radio button filler
+# ---------------------------------------------------------------------------
+# pypdf's update_page_form_field_values sets the parent field /V but does NOT
+# update each child widget's /AS (appearance state), so radio buttons remain
+# visually blank even though the value is stored.  This function walks the
+# AcroForm field tree directly and sets both parent /V and all kids' /AS.
+#
+# radio_values: {field_name: choice_index_0based}
+# ---------------------------------------------------------------------------
+def _set_radio_fields(writer, radio_values):
+    from pypdf.generic import NameObject
+    if not radio_values:
+        return
+    try:
+        acroform = writer._root_object['/AcroForm'].get_object()
+    except Exception:
+        return
+    _walk_radio(acroform.get('/Fields', []), radio_values)
+
+
+def _walk_radio(fields, radio_values):
+    from pypdf.generic import NameObject
+    for field_ref in fields:
+        try:
+            field = field_ref.get_object()
+        except Exception:
+            continue
+
+        ft   = str(field.get('/FT', ''))
+        name = str(field.get('/T',  ''))
+        ff   = int(field.get('/Ff', 0))
+        is_radio = (ft == '/Btn') and bool(ff & (1 << 15))
+
+        if is_radio and name in radio_values:
+            target_idx = radio_values[name]
+            kids = field.get('/Kids', [])
+
+            # Find the on-state name for the target kid from its /AP/N keys
+            on_state = None
+            if target_idx < len(kids):
+                try:
+                    kid_obj = kids[target_idx].get_object()
+                    ap = kid_obj.get('/AP', {})
+                    if hasattr(ap, 'get_object'):
+                        ap = ap.get_object()
+                    n_dict = ap.get('/N', {})
+                    if hasattr(n_dict, 'get_object'):
+                        n_dict = n_dict.get_object()
+                    on_states = [k for k in n_dict.keys() if k != '/Off']
+                    on_state = on_states[0] if on_states else f'/{target_idx}'
+                except Exception:
+                    on_state = f'/{target_idx}'
+            if on_state is None:
+                on_state = f'/{target_idx}'
+            if not on_state.startswith('/'):
+                on_state = f'/{on_state}'
+
+            # Set parent /V
+            field[NameObject('/V')] = NameObject(on_state)
+
+            # Set each kid /AS: on for the selected, Off for the rest
+            for i, kid_ref in enumerate(kids):
+                try:
+                    kid_obj = kid_ref.get_object()
+                    kid_obj[NameObject('/AS')] = NameObject(
+                        on_state if i == target_idx else '/Off'
+                    )
+                except Exception:
+                    pass
+
+        # Recurse into field groups (non-radio, non-leaf /Kids)
+        elif '/Kids' in field and ft not in ('/Btn', '/Tx', '/Ch'):
+            _walk_radio(field['/Kids'], radio_values)
+
+
+# ---------------------------------------------------------------------------
 # Core fill function
 # ---------------------------------------------------------------------------
 def _fill_pdf(subs):
@@ -557,8 +633,9 @@ def _fill_pdf(subs):
         qid = ID_REMAP.get(s['question_id'], s['question_id'])
         clean.append({**s, 'question_id': qid})
 
-    field_values = {}
-    filled_qids = set()
+    field_values = {}   # text + checkbox fields
+    radio_values = {}   # radio field name → choice index (0-based)
+    filled_qids  = set()
 
     for s in clean:
         qid      = s['question_id']
@@ -577,7 +654,7 @@ def _fill_pdf(subs):
             if field:
                 for i, opt in enumerate(q['options']):
                     if _match(choice, opt):
-                        field_values[field] = f'Choice{i + 1}'
+                        radio_values[field] = i
                         filled_qids.add(qid)
                         break
             if response and q.get('text_field'):
@@ -588,7 +665,7 @@ def _fill_pdf(subs):
             q = SINGLE_RADIO[qid]
             for i, opt in enumerate(q['options']):
                 if _match(choice, opt):
-                    field_values[q['field']] = f'Choice{i + 1}'
+                    radio_values[q['field']] = i
                     filled_qids.add(qid)
                     break
             if response and q.get('text_field'):
@@ -624,9 +701,12 @@ def _fill_pdf(subs):
                 field_values[TEXT_FIELDS[qid]] = val
                 filled_qids.add(qid)
 
-    # Apply to all pages
+    # Fill text + checkboxes via standard pypdf API
     for page in writer.pages:
         writer.update_page_form_field_values(page, field_values, auto_regenerate=False)
+
+    # Fill radio buttons via direct AcroForm tree walk
+    _set_radio_fields(writer, radio_values)
 
     buf = io.BytesIO()
     writer.write(buf)
