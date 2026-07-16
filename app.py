@@ -1,4 +1,5 @@
 import os, re, io
+from urllib.parse import unquote
 from flask import Flask, request, jsonify, Response
 import openpyxl
 from pypdf import PdfReader, PdfWriter
@@ -964,6 +965,7 @@ def dump_fields():
 def debug_company(company_name):
     """Debug: dump raw rows for a company to inspect question IDs and responses."""
     try:
+        company_name = unquote(company_name)
         _, data = _load()
         # Exact match first; fall back to case-insensitive match
         rows = data.get(company_name)
@@ -991,6 +993,7 @@ def debug_company(company_name):
 def debug_company_search(query):
     """Debug: search company names by substring (case-insensitive)."""
     try:
+        query = unquote(query)
         names, data = _load()
         lq = query.lower()
         matches = [n for n in names if lq in n.lower()]
