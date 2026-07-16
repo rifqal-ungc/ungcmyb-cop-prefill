@@ -970,10 +970,19 @@ def debug_company(company_name):
         if rows is None:
             lc = company_name.lower()
             matched_key = next((k for k in data if k.lower() == lc), None)
-            rows = data.get(matched_key, []) if matched_key else []
             if matched_key:
+                rows = data.get(matched_key, [])
                 return jsonify({'count': len(rows), 'matched_key': matched_key, 'rows': rows})
-        return jsonify({'count': len(rows), 'rows': rows or []})
+            # Diagnostics: show received bytes to catch hidden characters
+            return jsonify({
+                'count': 0, 'rows': [],
+                '_diag': {
+                    'received': company_name,
+                    'bytes': list(company_name.encode('utf-8')),
+                    'sample_keys': list(data.keys())[:10],
+                }
+            })
+        return jsonify({'count': len(rows), 'rows': rows})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
