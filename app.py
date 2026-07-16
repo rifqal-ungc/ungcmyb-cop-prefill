@@ -107,12 +107,23 @@ def _best_option(choice, options):
     for i, opt in enumerate(options):
         if choice_n == _norm(opt):
             return i
-    # Pass 2: choice starts with option (option is abbreviated; longest wins)
+    # Pass 2: bidirectional prefix match — take the longest overlapping match.
+    # Handles both: choice is longer than option (choice has detail opt lacks)
+    #           and: option is longer than choice (option has detail choice lacks).
+    # "yes, focused on employees and value chain" must beat "yes, focused on employees".
     best_i, best_len = -1, -1
     for i, opt in enumerate(options):
         opt_n = _norm(opt)
-        if opt_n and choice_n.startswith(opt_n) and len(opt_n) > best_len:
-            best_i, best_len = i, len(opt_n)
+        if not opt_n:
+            continue
+        if choice_n.startswith(opt_n):          # choice >= option in length
+            match_len = len(opt_n)
+        elif opt_n.startswith(choice_n):        # option >= choice in length
+            match_len = len(choice_n)
+        else:
+            continue
+        if match_len > best_len:
+            best_i, best_len = i, match_len
     return best_i
 
 # ---------------------------------------------------------------------------
@@ -840,6 +851,19 @@ def debug_company(company_name):
         _, data = _load()
         rows = data.get(company_name, [])
         return jsonify({'count': len(rows), 'rows': rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/text', methods=['GET'])
+def debug_pdf_text():
+    """Debug: extract raw text from template PDF pages."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        pages = {}
+        for i, page in enumerate(reader.pages):
+            pages[f'page_{i+1}'] = page.extract_text() or ''
+        return jsonify(pages)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
