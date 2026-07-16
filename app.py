@@ -233,6 +233,19 @@ MATRIX_RADIO = {
         'rows': _gov_rows('G3'),
         'text_field': 'G3 Text Field 5',
     },
+    # G3.1 reuses G3's PDF fields (confirmed: no G3.1 fields in radio debug).
+    # Processing G3.1 last lets it overwrite G3 with the governance structure answer.
+    'G3.1': {
+        'options': [
+            'no formal structure',
+            'yes, with limited influence on outcomes',
+            'yes, with moderate influence on outcomes',
+            'yes, with direct influence on some outcomes',
+            'yes, with direct influence at the highest level of the company',
+        ],
+        'rows': _gov_rows('G3'),   # same field names as G3
+        'text_field': 'G3 Text Field 5',
+    },
     'G4': {
         # PDF confirmed 5 kids (not 6) — removed "and external stakeholders" option
         'options': [
