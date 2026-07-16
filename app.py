@@ -42,10 +42,41 @@ QUESTION_ID_MAP_2025_TO_2026 = {
 # Applied after normalize(); keys and values are already lowercased.
 # ---------------------------------------------------------------------------
 _CHOICE_REMAP = {
+    # G2 — scope change: "own operations" → "employees"
     'yes, focused on our own operations and the value chain (e.g., suppliers, consumers, communities, other business relationships)':
         'yes, focused on employees and the value chain (e.g., suppliers, consumers, communities, other business relationships)',
     'yes, focused on our own operations and the value chain':
         'yes, focused on employees and the value chain',
+
+    # G3 — preposition: "of some outcomes" → "on some outcomes"
+    'yes, with direct influence of some outcomes':
+        'yes, with direct influence on some outcomes',
+
+    # G6 — wording: "within two years" → "within the next two years"
+    'no, but we plan to within two years':
+        'no, but we plan to within the next two years',
+
+    # AC3 — wording: "to in the next" → "to within the next"
+    'no, but we plan to in the next two years':
+        'no, but we plan to within the next two years',
+
+    # E4 / HR/L5 — pluralisation: "impact identified" → "impact(s) identified"
+    'yes, adverse impact identified, and remedy provided/enabled':
+        'yes, adverse impact(s) identified, and remedy provided/enabled',
+    'yes, adverse impact identified, but no remedy provided/enabled':
+        'yes, adverse impact(s) identified, but no remedy provided/enabled',
+
+    # HR/L1 — 2026 added "and equality" to non-discrimination topic
+    'non-discrimination in respect of employment and occupation':
+        'non-discrimination and equality (in respect of employment and occupation)',
+
+    # HR/L3 — "or" → "/" in slash-style phrasing (slash-space already handled by normalize)
+    'to discuss potential ways to prevent or mitigate the risks/impacts in question':
+        'to discuss potential ways to prevent/mitigate the risks/impacts in question',
+
+    # HR/L6 — word order: "to not" → "not to"
+    'choose to not disclose':
+        'choose not to disclose',
 }
 
 CHECKBOX = '❑'
@@ -67,8 +98,10 @@ def supabase_get(path):
 
 
 def normalize(s):
-    return re.sub(r'\s+', ' ', str(s or '').lower().strip()
-                  .replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' '))
+    s = str(s or '').replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+    s = re.sub(r'\s*/\s*', '/', s)   # "prevent/ mitigate" → "prevent/mitigate"
+    s = re.sub(r'[\s:\-]+$', '', s)  # strip trailing colon/dash/space (e.g. "Gap -")
+    return re.sub(r'\s+', ' ', s.lower().strip())
 
 
 def remap_choice(text):
