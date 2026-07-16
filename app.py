@@ -1153,6 +1153,64 @@ def debug_radio():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/field-kids/<path:field_name>', methods=['GET'])
+def debug_field_kids(field_name):
+    """Debug: dump the child widget annotations of a named AcroForm group field.
+    Use to find kid ordering for orphan-annotation checkboxes like HR/L1."""
+    field_name = unquote(field_name)
+    try:
+        reader = PdfReader(PDF_PATH)
+        acroform = reader.trailer['/Root']['/AcroForm'].get_object()
+
+        def find_field(fields, target):
+            for fref in fields:
+                try:
+                    f = fref.get_object()
+                except Exception:
+                    continue
+                t = str(f.get('/T', ''))
+                if t == target:
+                    return f
+                if '/Kids' in f:
+                    found = find_field(f['/Kids'], target)
+                    if found is not None:
+                        return found
+            return None
+
+        field = find_field(acroform.get('/Fields', []), field_name)
+        if field is None:
+            return jsonify({'error': f'field "{field_name}" not found'}), 404
+
+        kids = field.get('/Kids', [])
+        result = []
+        for i, kid_ref in enumerate(kids):
+            try:
+                kid = kid_ref.get_object()
+                ft  = str(kid.get('/FT', ''))
+                t   = str(kid.get('/T', ''))
+                v   = str(kid.get('/V', ''))
+                as_ = str(kid.get('/AS', ''))
+                tu  = str(kid.get('/TU', ''))    # tooltip / label
+                contents = str(kid.get('/Contents', ''))
+                ap = kid.get('/AP', {})
+                if hasattr(ap, 'get_object'): ap = ap.get_object()
+                n_dict = ap.get('/N', {})
+                if hasattr(n_dict, 'get_object'): n_dict = n_dict.get_object()
+                on_states = [k for k in (n_dict.keys() if hasattr(n_dict, 'keys') else []) if k != '/Off']
+                rect = [str(x) for x in kid.get('/Rect', [])]
+                result.append({
+                    'index': i, 'T': t, 'FT': ft, 'V': v, 'AS': as_,
+                    'TU': tu, 'Contents': contents,
+                    'on_states': on_states, 'Rect': rect,
+                })
+            except Exception as e:
+                result.append({'index': i, 'error': str(e)})
+
+        return jsonify({'field': field_name, 'kid_count': len(kids), 'kids': result})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/debug/field-tree', methods=['GET'])
 def debug_field_tree():
     """Debug: dump EVERY field in the AcroForm tree (including nested checkbox children).
