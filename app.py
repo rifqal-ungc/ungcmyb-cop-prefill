@@ -98,6 +98,8 @@ _CREMAP = {
     'to discuss potential ways to prevent or mitigate the risks/impacts in question':
         'to discuss potential ways to prevent/mitigate the risks/impacts in question',
     'choose to not disclose': 'choose not to disclose',
+    'every year': 'annually',
+    'every 2 years': 'every two years',
 }
 
 def _remap(text):
@@ -111,6 +113,9 @@ _SUBQ_REMAP = {
     'labour rights risks':   'labour rights/decent work',
     'environmental risks':   'environment',
     'corruption risks':      'anti-corruption',
+    # HR/L non-discrimination: 2025 omits "and equality" that 2026 added
+    'non-discrimination in respect of employment and occupation':
+        'non-discrimination and equality (in respect of employment and occupation)',
 }
 
 def _remap_subq(subq):
@@ -207,15 +212,17 @@ _ENV_ROWS_9 = [
 def _env_rows(q):
     return [(lab, fld.replace('{q}', q)) for lab, fld in _ENV_ROWS_9]
 
-# Shared 8-row HR/L topic list (used by HR/L2, HR/L4.1, HR/L5)
+# Shared 8-row HR/L topic list (used by HR/L2, HR/L4.1, HR/L5).
+# Order follows 2025 data and 2026 form: freedom of assoc → child → forced →
+# non-discrimination → safe/healthy → gender equality → working hours → other.
 _HRL_ROWS_8 = [
     ('freedom of association and the right to collective bargaining', '{p} Radio Button 1'),
     ('child labour',                                                   '{p} Radio Button 2'),
     ('forced labour',                                                  '{p} Radio Button 3'),
     ('non-discrimination and equality (in respect of employment and occupation)', '{p} Radio Button 4'),
     ('safe and healthy working environment',                            '{p} Radio Button 5'),
-    ('wages',                                                          '{p} Radio Button 6'),
-    ("gender equality and women's rights",                             '{p} Radio Button 7'),
+    ("gender equality and women's rights",                             '{p} Radio Button 6'),
+    ('working hours',                                                   '{p} Radio Button 7'),
     ('other topic(s)',                                                  '{p} Radio Button 8'),
 ]
 
@@ -303,14 +310,16 @@ MATRIX_RADIO = {
         'rows': _gov_rows('G5.1'),
         'text_field': None,
     },
-    # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute)
+    # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute).
+    # Row labels use the 2025 subquestion prefix so _match() hits on startswith.
     'G6.1': {
         'options': ['no', 'yes'],
         'rows': [
-            ('accessible to all intended users',                         'G6.1 Radio Button 1'),
-            ('safe and allows for confidential or anonymous reporting',  'G6.1 Radio Button 2'),
-            ('transparent and explains how complaints are processed',    'G6.1 Radio Button 3'),
-            ('monitored and evaluated for effectiveness',                'G6.1 Radio Button 4'),
+            ('is the process communicated to all employees',             'G6.1 Radio Button 1'),
+            ('is the process available to non-employees',                'G6.1 Radio Button 2'),
+            ('is the process confidential',                              'G6.1 Radio Button 3'),
+            ('are there processes in place to avoid retaliation',        'G6.1 Radio Button 4'),
+            ('can concerns be raised about suppliers',                   'G6.1 Radio Button 5'),
         ],
         'text_field': None,
     },
@@ -679,6 +688,8 @@ TEXT_FIELDS = {
     # "A" suffix variants — same text field, different question_id in Excel
     'G2A':  'G2 Text Field 4',
     'G3A':  'G3 Text Field 5',
+    'G3.1A': 'G3 Text Field 5',   # G3.1 reuses G3 fields; G3.1A overwrites G3A (G3.1 is more specific)
+    'G7A':  'G7 Text Field 9',
     'G4A':  'G4 Text Field 6',
     'G5A':  'G5 Text Field 7',
     'G6A':  'G6 Text Field 8',
