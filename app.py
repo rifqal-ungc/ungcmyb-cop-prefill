@@ -66,7 +66,13 @@ def _match(a, b):
 # ---------------------------------------------------------------------------
 # 2025 → 2026 question-ID shift
 # ---------------------------------------------------------------------------
-ID_REMAP = {'G12':'G13', 'G13':'G14', 'E5':'E7', 'E7':'E8', 'E10':'E11'}
+ID_REMAP = {
+    'G12': 'G13', 'G13': 'G14',
+    'E5': 'E7', 'E7': 'E8', 'E10': 'E11',
+    # HR/L section: Excel may store without the "HR/" prefix
+    'L2': 'HR/L2', 'L4.1': 'HR/L4.1', 'L5': 'HR/L5',
+    'L6': 'HR/L6', 'L7': 'HR/L7',
+}
 
 # ---------------------------------------------------------------------------
 # Choice-text wording fixes (2025 phrasing → 2026 phrasing)
@@ -162,9 +168,49 @@ _GOV_ROWS = [
 def _gov_rows(q):
     return [(lab, fld.replace('{q}', q)) for lab, fld in _GOV_ROWS]
 
+# Shared 5-level progress scale (used by E3.1 and HR/L4.1)
+_PROGRESS_OPTS = [
+    'no action taken or planned',
+    'early progress – commitments or initial actions taken',
+    'some progress – partially implemented or piloted',
+    'good progress – largely implemented across operations',
+    'fully implemented across the company',
+]
+
+# Shared 9-row environmental topic list (used by E1, E3.1, E4)
+_ENV_ROWS_9 = [
+    ('climate change',               '{q} Radio Button 1'),
+    ('water',                        '{q} Radio Button 2'),
+    ('oceans',                       '{q} Radio Button 3'),
+    ('nature and biodiversity',      '{q} Radio Button 4'),
+    ('air pollution',                '{q} Radio Button 5'),
+    ('waste management',             '{q} Radio Button 6'),
+    ('circularity',                  '{q} Radio Button 7'),
+    ('energy & resource use',        '{q} Radio Button 8'),
+    ('other environmental topic(s)', '{q} Radio Button 9'),
+]
+
+def _env_rows(q):
+    return [(lab, fld.replace('{q}', q)) for lab, fld in _ENV_ROWS_9]
+
+# Shared 8-row HR/L topic list (used by HR/L2, HR/L4.1, HR/L5)
+_HRL_ROWS_8 = [
+    ('freedom of association and the right to collective bargaining', '{p} Radio Button 1'),
+    ('child labour',                                                   '{p} Radio Button 2'),
+    ('forced labour',                                                  '{p} Radio Button 3'),
+    ('non-discrimination and equality (in respect of employment and occupation)', '{p} Radio Button 4'),
+    ('safe and healthy working environment',                            '{p} Radio Button 5'),
+    ('wages',                                                          '{p} Radio Button 6'),
+    ("gender equality and women's rights",                             '{p} Radio Button 7'),
+    ('other topic(s)',                                                  '{p} Radio Button 8'),
+]
+
+def _hrl_rows(prefix):
+    return [(lab, fld.replace('{p}', prefix)) for lab, fld in _HRL_ROWS_8]
+
 MATRIX_RADIO = {
     # ── Governance ──────────────────────────────────────────────────────────
-    # Options are in PDF left-to-right column order (kid 0 = leftmost column)
+    # Options listed in PDF left-to-right column order (kid 0 = leftmost)
     'G2': {
         'options': [
             'no, this is not a current priority',
@@ -188,37 +234,82 @@ MATRIX_RADIO = {
         'text_field': 'G3 Text Field 5',
     },
     'G4': {
+        # PDF confirmed 5 kids (not 6) — removed "and external stakeholders" option
         'options': [
             'no, this is not a current priority',
             'no, but we plan to within the next two years',
             'yes, conducted by a designated individual or group',
             'yes, engaging employees across the company',
             'yes, engaging employees and business partners',
-            'yes, engaging employees, business partners and external stakeholders',
         ],
         'rows': _gov_rows('G4'),
         'text_field': 'G4 Text Field 6',
     },
     'G5': {
+        # PDF confirmed 6 kids
         'options': [
             'no, this is not a current priority',
             'no, but we plan to within the next two years',
             'yes, related to our own operations',
             'yes, related to our own operations and suppliers',
             'yes, related to our own operations and the value chain',
+            'choose not to disclose',
         ],
         'rows': _gov_rows('G5'),
         'text_field': 'G5 Text Field 7',
     },
     'G6': {
+        # PDF confirmed 5 kids (was 4) — added extended formal process option
         'options': [
             'no, this is not a current priority',
             'no, but we plan to within the next two years',
             'yes, we have an informal process (e.g., through supervisors, others)',
             'yes, we have a formal process',
+            'yes, we have a formal process accessible to employees and external stakeholders or the value chain',
         ],
         'rows': _gov_rows('G6'),
         'text_field': 'G6 Text Field 8',
+    },
+    # G5.1: conditional on G5 — which topics are included in due diligence (Yes/No per topic)
+    'G5.1': {
+        'options': ['no', 'yes'],
+        'rows': _gov_rows('G5.1'),
+        'text_field': None,
+    },
+    # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute)
+    'G6.1': {
+        'options': ['no', 'yes'],
+        'rows': [
+            ('accessible to all intended users',                         'G6.1 Radio Button 1'),
+            ('safe and allows for confidential or anonymous reporting',  'G6.1 Radio Button 2'),
+            ('transparent and explains how complaints are processed',    'G6.1 Radio Button 3'),
+            ('monitored and evaluated for effectiveness',                'G6.1 Radio Button 4'),
+        ],
+        'text_field': None,
+    },
+    # G7: tracking effectiveness per topic (4 rows × 4 options)
+    'G7': {
+        'options': [
+            'we do not track the effectiveness of our actions on this topic',
+            'we track this, but informally or through indirect measures',
+            'we track this formally against qualitative goals or milestones',
+            'we track this formally against quantitative targets',
+        ],
+        'rows': _gov_rows('G7'),
+        'text_field': None,
+    },
+    # G7.1: conditional on G7 — public reporting on tracking (Yes/No per topic)
+    'G7.1': {
+        'options': ['no', 'yes'],
+        'rows': [
+            ('human rights',              'G7.1 Radio Button 1'),
+            ('labour rights/decent work', 'G7.1 Radio Button 2'),
+            ('environment',               'G7.1 Radio Button 3'),
+            ('anti-corruption',           'G7.1 Radio Button 4'),
+            ('gender equality',           'G7.1 Radio Button 5'),
+            ('supply chain sustainability', 'G7.1 Radio Button 6'),
+        ],
+        'text_field': None,
     },
     # ── Environment ─────────────────────────────────────────────────────────
     'E1': {
@@ -228,18 +319,14 @@ MATRIX_RADIO = {
             'yes, included within a broader policy or as a stand-alone policy',
             'not applicable (please provide additional information)',
         ],
-        'rows': [
-            ('climate change',          'E1 Radio Button 1'),
-            ('water',                   'E1 Radio Button 2'),
-            ('oceans',                  'E1 Radio Button 3'),
-            ('nature and biodiversity', 'E1 Radio Button 4'),
-            ('air pollution',           'E1 Radio Button 5'),
-            ('waste management',        'E1 Radio Button 6'),
-            ('circularity',             'E1 Radio Button 7'),
-            ('energy & resource use',   'E1 Radio Button 8'),
-            ('other environmental topic(s)', 'E1 Radio Button 9'),
-        ],
+        'rows': _env_rows('E1'),
         'text_field': 'E1 Text Field 1',
+    },
+    # E3.1: conditional on E3 — progress on environmental prevention per topic (9 rows × 5 options)
+    'E3.1': {
+        'options': _PROGRESS_OPTS,
+        'rows': _env_rows('E3.1'),
+        'text_field': None,
     },
     'E4': {
         'options': [
@@ -248,17 +335,7 @@ MATRIX_RADIO = {
             'yes, adverse impact(s) identified, and remedy provided/enabled',
             'choose not to disclose (please provide additional information)',
         ],
-        'rows': [
-            ('climate change',          'E4 Radio Button 1'),
-            ('water',                   'E4 Radio Button 2'),
-            ('oceans',                  'E4 Radio Button 3'),
-            ('nature and biodiversity', 'E4 Radio Button 4'),
-            ('air pollution',           'E4 Radio Button 5'),
-            ('waste management',        'E4 Radio Button 6'),
-            ('circularity',             'E4 Radio Button 7'),
-            ('energy & resource use',   'E4 Radio Button 8'),
-            ('other environmental topic(s)', 'E4 Radio Button 9'),
-        ],
+        'rows': _env_rows('E4'),
         'text_field': 'E4 Text Field 1',
     },
     # ── Human Rights & Labour ────────────────────────────────────────────────
@@ -269,16 +346,14 @@ MATRIX_RADIO = {
             'yes, included within a broader policy or as a stand-alone policy',
             'not applicable (please provide additional information)',
         ],
-        'rows': [
-            ('freedom of association and the right to collective bargaining', 'L2 Radio Button 1'),
-            ('child labour',                                                   'L2 Radio Button 2'),
-            ('forced labour',                                                  'L2 Radio Button 3'),
-            ('non-discrimination and equality (in respect of employment and occupation)', 'L2 Radio Button 4'),
-            ('safe and healthy working environment',                            'L2 Radio Button 5'),
-            ('wages',                                                          'L2 Radio Button 6'),
-            ('gender equality and women\'s rights',                            'L2 Radio Button 7'),
-        ],
+        'rows': _hrl_rows('L2'),
         'text_field': 'L2 Text Field 13',
+    },
+    # HR/L4.1: conditional on HR/L4 — progress on HR/L prevention per topic (8 rows × 5 options)
+    'HR/L4.1': {
+        'options': _PROGRESS_OPTS,
+        'rows': _hrl_rows('L4.1'),
+        'text_field': None,
     },
     'HR/L5': {
         'options': [
@@ -287,15 +362,22 @@ MATRIX_RADIO = {
             'yes, adverse impact(s) identified, and remedy provided/enabled',
             'choose not to disclose (please provide additional information)',
         ],
+        'rows': _hrl_rows('L5'),
+        'text_field': None,
+    },
+    # ── Anti-Corruption ──────────────────────────────────────────────────────
+    # AC4.1: conditional on AC4 — training frequency per group (3 rows × 4 options)
+    'AC4.1': {
+        'options': [
+            'annually',
+            'every two years',
+            'less frequently than every two years',
+            'varies by employee group or topic',
+        ],
         'rows': [
-            ('freedom of association and the right to collective bargaining', 'L5 Radio Button 1'),
-            ('child labour',                                                   'L5 Radio Button 2'),
-            ('forced labour',                                                  'L5 Radio Button 3'),
-            ('non-discrimination and equality (in respect of employment and occupation)', 'L5 Radio Button 4'),
-            ('safe and healthy working environment',                            'L5 Radio Button 5'),
-            ('wages',                                                          'L5 Radio Button 6'),
-            ('gender equality and women\'s rights',                            'L5 Radio Button 7'),
-            ('other topic',                                                    'L5 Radio Button 8'),
+            ('all employees',                                              'AC4.1 Radio Button 1'),
+            ('selected employees (please provide additional information)', 'AC4.1 Radio Button 2'),
+            ('third-party suppliers, contractors and/or consultants',      'AC4.1 Radio Button 3'),
         ],
         'text_field': None,
     },
@@ -334,10 +416,10 @@ SINGLE_RADIO = {
     },
     # ── Environment ─────────────────────────────────────────────────────────
     'E6': {
+        # PDF confirmed 2 kids only — "partially measured" and "measured total" both map to index 1
         'options': [
-            'we did not measure scope 3 emissions (please provide additional information)',
-            'yes, partially measured',
-            'yes, measured total emissions (tco2e)',
+            'we did not measure scope 3 emissions',
+            'yes',
         ],
         'field': 'E6 Radio Button 1',
         'text_field': 'E6 Text Field 1',
@@ -453,21 +535,7 @@ CHECKBOX_SEQ = {
         'prefix': 'E9 Check Box', 'start': 1,
         'text_field': 'E9 Text Field 1',
     },
-    'E11': {
-        'options': [
-            'climate change',
-            'oceans',
-            'energy & resource use',
-            'waste management',
-            'water',
-            'nature and biodiversity',
-            'air pollution',
-            'circularity',
-            'none of the topics have been identified as material by the company',
-        ],
-        'prefix': 'E11 Radio Button', 'start': 1,
-        'text_field': None,
-    },
+    # E11 removed from CHECKBOX_SEQ — it uses radio buttons, handled in BINARY_SELECT below
     'E16': {
         'options': [
             'has a formal circular economy policy or commitment',
@@ -554,6 +622,20 @@ CHECKBOX_MAP = {
             'other (please provide additional information)':            'AC1',
         },
         'text_field': None,
+    },
+}
+
+# Binary Yes/No radio matrices where the CHOICE (or SUBQUESTION) identifies the row.
+# For each matching row: radio_values[field] = 1 (Yes = kid index 1).
+# Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
+BINARY_SELECT = {
+    'E11': {
+        'rows': [
+            ('climate change',          'E11 Radio Button 1'),
+            ('water',                   'E11 Radio Button 2'),
+            ('nature and biodiversity', 'E11 Radio Button 3'),
+            ('air pollution',           'E11 Radio Button 4'),
+        ],
     },
 }
 
@@ -752,6 +834,14 @@ def _fill_pdf(subs):
                     break
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
+
+        # ── BINARY SELECT (Yes/No radio where choice IS the row topic) ────────
+        elif qid in BINARY_SELECT:
+            q = BINARY_SELECT[qid]
+            for label, fname in q['rows']:
+                if _match(subq, label) or _match(choice, label):
+                    radio_values[fname] = 1   # Yes = kid index 1
+                    filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
         elif qid in TEXT_FIELDS:
