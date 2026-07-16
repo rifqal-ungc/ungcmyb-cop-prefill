@@ -103,6 +103,19 @@ def _remap(text):
     k = _norm(text)
     return _CREMAP.get(k, k)
 
+# Subquestion label remap: normalises 2025 row labels to match our row mappings.
+# G4/G5/G6 use "X risks" while our gov_rows labels use "human rights", "anti-corruption" etc.
+_SUBQ_REMAP = {
+    'human rights risks':    'human rights',
+    'labour rights risks':   'labour rights/decent work',
+    'environmental risks':   'environment',
+    'corruption risks':      'anti-corruption',
+}
+
+def _remap_subq(subq):
+    n = _norm(subq)
+    return _SUBQ_REMAP.get(n, n)
+
 def _best_option(choice, options):
     """Return index of best-matching option, using longest-prefix match to avoid ambiguity.
     'yes, focused on employees and the value chain' correctly beats 'yes, focused on employees'."""
@@ -796,7 +809,7 @@ def _fill_pdf(subs):
     for s in clean:
         qid      = s['question_id']
         choice   = _remap(s['choice'])
-        subq     = _norm(s['subquestion'])
+        subq     = _remap_subq(s['subquestion'])
         response = s['response'].strip()
 
         # ── MATRIX RADIO ──────────────────────────────────────────────────
@@ -952,8 +965,27 @@ def debug_company(company_name):
     """Debug: dump raw rows for a company to inspect question IDs and responses."""
     try:
         _, data = _load()
-        rows = data.get(company_name, [])
-        return jsonify({'count': len(rows), 'rows': rows})
+        # Exact match first; fall back to case-insensitive match
+        rows = data.get(company_name)
+        if rows is None:
+            lc = company_name.lower()
+            matched_key = next((k for k in data if k.lower() == lc), None)
+            rows = data.get(matched_key, []) if matched_key else []
+            if matched_key:
+                return jsonify({'count': len(rows), 'matched_key': matched_key, 'rows': rows})
+        return jsonify({'count': len(rows), 'rows': rows or []})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/company-search/<path:query>', methods=['GET'])
+def debug_company_search(query):
+    """Debug: search company names by substring (case-insensitive)."""
+    try:
+        names, data = _load()
+        lq = query.lower()
+        matches = [n for n in names if lq in n.lower()]
+        return jsonify({'query': query, 'count': len(matches), 'matches': matches[:50]})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
