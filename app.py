@@ -97,6 +97,24 @@ def _remap(text):
     k = _norm(text)
     return _CREMAP.get(k, k)
 
+def _best_option(choice, options):
+    """Return index of best-matching option, using longest-prefix match to avoid ambiguity.
+    'yes, focused on employees and the value chain' correctly beats 'yes, focused on employees'."""
+    choice_n = _norm(choice)
+    if not choice_n:
+        return -1
+    # Pass 1: exact match
+    for i, opt in enumerate(options):
+        if choice_n == _norm(opt):
+            return i
+    # Pass 2: choice starts with option (option is abbreviated; longest wins)
+    best_i, best_len = -1, -1
+    for i, opt in enumerate(options):
+        opt_n = _norm(opt)
+        if opt_n and choice_n.startswith(opt_n) and len(opt_n) > best_len:
+            best_i, best_len = i, len(opt_n)
+    return best_i
+
 # ---------------------------------------------------------------------------
 # PDF form field mapping
 # ---------------------------------------------------------------------------
@@ -135,57 +153,58 @@ def _gov_rows(q):
 
 MATRIX_RADIO = {
     # ── Governance ──────────────────────────────────────────────────────────
+    # Options are in PDF left-to-right column order (kid 0 = leftmost column)
     'G2': {
         'options': [
+            'no, this is not a current priority',
+            'no, but we plan to within the next two years',
             'yes, focused on employees',
             'yes, focused on employees and suppliers',
             'yes, focused on employees and the value chain (e.g., suppliers, consumers, communities, other business relationships)',
-            'no, but we plan to within the next two years',
-            'no, this is not a current priority',
         ],
         'rows': _gov_rows('G2'),
         'text_field': 'G2 Text Field 4',
     },
     'G3': {
         'options': [
-            'yes, with direct influence at the highest levels of the company',
-            'yes, with direct influence on some outcomes',
-            'yes, with moderate influence on outcomes',
-            'yes, with limited influence on outcomes',
             'no one is specifically responsible for this topic',
+            'yes, with limited influence on outcomes',
+            'yes, with moderate influence on outcomes',
+            'yes, with direct influence on some outcomes',
+            'yes, with direct influence at the highest levels of the company',
         ],
         'rows': _gov_rows('G3'),
         'text_field': 'G3 Text Field 5',
     },
     'G4': {
         'options': [
+            'no, this is not a current priority',
+            'no, but we plan to within the next two years',
+            'yes, conducted by a designated individual or group',
             'yes, engaging employees across the company',
             'yes, engaging employees and business partners',
             'yes, engaging employees, business partners and external stakeholders',
-            'yes, conducted by a designated individual or group',
-            'no, but we plan to within the next two years',
-            'no, this is not a current priority',
         ],
         'rows': _gov_rows('G4'),
         'text_field': 'G4 Text Field 6',
     },
     'G5': {
         'options': [
+            'no, this is not a current priority',
+            'no, but we plan to within the next two years',
             'yes, related to our own operations',
             'yes, related to our own operations and suppliers',
             'yes, related to our own operations and the value chain',
-            'no, but we plan to within the next two years',
-            'no, this is not a current priority',
         ],
         'rows': _gov_rows('G5'),
         'text_field': 'G5 Text Field 7',
     },
     'G6': {
         'options': [
-            'yes, we have a formal process',
-            'yes, we have an informal process (e.g., through supervisors, others)',
-            'no, but we plan to within the next two years',
             'no, this is not a current priority',
+            'no, but we plan to within the next two years',
+            'yes, we have an informal process (e.g., through supervisors, others)',
+            'yes, we have a formal process',
         ],
         'rows': _gov_rows('G6'),
         'text_field': 'G6 Text Field 8',
@@ -284,12 +303,12 @@ SINGLE_RADIO = {
     # ── Governance ──────────────────────────────────────────────────────────
     'G12': {
         'options': [
+            'no, this is not a current priority',
+            'no, but we plan to within the next two years',
+            'choose not to disclose',
             'yes, we consider sustainability in our financial planning and decision-making, but not through a structured approach',
             'yes, we take a structured approach to considering sustainability through a sustainability-informed investment or financing strategy, but this does not include specific targets tied to sustainability impact',
             'yes, we take a structured approach to considering sustainability in financing and investment through sdg-aligned investment or sdg-linked financing strategies, including specific targets tied to sustainability impact',
-            'no, but we plan to within the next two years',
-            'no, this is not a current priority',
-            'choose not to disclose',
         ],
         'field': 'G12 V2 Radio Button ',
         'text_field': None,
@@ -305,20 +324,20 @@ SINGLE_RADIO = {
     # ── Environment ─────────────────────────────────────────────────────────
     'E6': {
         'options': [
-            'yes, measured total emissions (tco2e)',
-            'yes, partially measured',
             'we did not measure scope 3 emissions (please provide additional information)',
+            'yes, partially measured',
+            'yes, measured total emissions (tco2e)',
         ],
         'field': 'E6 Radio Button 1',
         'text_field': 'E6 Text Field 1',
     },
     'E14': {
         'options': [
-            'yes, it is implemented across the company',
-            'yes, it is implemented for selected priority locations/products/commodities only (please provide additional information)',
-            'yes, plan is developed but not yet implemented (please provide additional information)',
-            'plan development is in progress (please provide additional information)',
             'no plan yet',
+            'plan development is in progress (please provide additional information)',
+            'yes, plan is developed but not yet implemented (please provide additional information)',
+            'yes, it is implemented for selected priority locations/products/commodities only (please provide additional information)',
+            'yes, it is implemented across the company',
         ],
         'field': 'E14 V2 Radio Button 1',
         'text_field': 'E14 Text Field 1',
@@ -537,6 +556,37 @@ TEXT_FIELDS = {
     'E8': 'E8 Text Field 1',
     'E13': 'E13 Text Field 5',
     'AC7': 'AC7 Text Field 20',
+    # "A" suffix variants — same text field, different question_id in Excel
+    'G2A':  'G2 Text Field 4',
+    'G3A':  'G3 Text Field 5',
+    'G4A':  'G4 Text Field 6',
+    'G5A':  'G5 Text Field 7',
+    'G6A':  'G6 Text Field 8',
+    'G8A':  'G8 Text Field 9',
+    'G12A': 'G12 V2 Radio Button ',   # unlikely but safe
+    'G13A': 'G13 Text Field 12',
+    'G14A': 'G14 Text Field 12',
+    'E1A':  'E1 Text Field 1',
+    'E4A':  'E4 Text Field 1',
+    'E5A':  'E5 Text Field 7',
+    'E6A':  'E6 Text Field 1',
+    'E8A':  'E8 Text Field 1',
+    'E9A':  'E9 Text Field 1',
+    'E13A': 'E13 Text Field 5',
+    'E14A': 'E14 Text Field 1',
+    'E16A': 'E15 Text Field 14',
+    'L2A':  'L2 Text Field 13',
+    'HR/L2A': 'L2 Text Field 13',
+    'AC1A': 'AC1 Text Field 15',
+    'AC2A': 'AC2 Text Field 18',
+    'AC3A': 'AC3 Text Field 19',
+    'AC4A': 'AC4 Text Field 20',
+    'AC5A': 'AC5 Text Field 20',
+    'AC6A': 'AC6 Text Field 20',
+    'AC7A': 'AC7 Text Field 20',
+    'S1A':  'S1 Text Field 3',
+    'S2A':  'S2 Text Field 4',
+    'G1A':  'G1 Text Field 5',
 }
 
 # ---------------------------------------------------------------------------
@@ -652,22 +702,20 @@ def _fill_pdf(subs):
                     field = fname
                     break
             if field:
-                for i, opt in enumerate(q['options']):
-                    if _match(choice, opt):
-                        radio_values[field] = i
-                        filled_qids.add(qid)
-                        break
+                best_i = _best_option(choice, q['options'])
+                if best_i >= 0:
+                    radio_values[field] = best_i
+                    filled_qids.add(qid)
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
         # ── SINGLE RADIO ──────────────────────────────────────────────────
         elif qid in SINGLE_RADIO:
             q = SINGLE_RADIO[qid]
-            for i, opt in enumerate(q['options']):
-                if _match(choice, opt):
-                    radio_values[q['field']] = i
-                    filled_qids.add(qid)
-                    break
+            best_i = _best_option(choice, q['options'])
+            if best_i >= 0:
+                radio_values[q['field']] = best_i
+                filled_qids.add(qid)
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
@@ -781,6 +829,61 @@ def dump_fields():
         fields = reader.get_fields()
         out = {k: str(v.get('/V', '')) for k, v in (fields or {}).items()}
         return jsonify(out)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/company/<path:company_name>', methods=['GET'])
+def debug_company(company_name):
+    """Debug: dump raw rows for a company to inspect question IDs and responses."""
+    try:
+        _, data = _load()
+        rows = data.get(company_name, [])
+        return jsonify({'count': len(rows), 'rows': rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/radio', methods=['GET'])
+def debug_radio():
+    """Debug: dump radio button kid structure from PDF template."""
+    from pypdf.generic import NameObject
+    try:
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+        acroform = writer._root_object['/AcroForm'].get_object()
+        result = {}
+        def walk(fields, path=''):
+            for fref in fields:
+                try:
+                    f = fref.get_object()
+                except Exception:
+                    continue
+                ft  = str(f.get('/FT', ''))
+                t   = str(f.get('/T', ''))
+                ff  = int(f.get('/Ff', 0))
+                name = (path + '.' + t if path else t).strip('.')
+                is_radio = (ft == '/Btn') and bool(ff & (1 << 15))
+                if is_radio:
+                    kids = f.get('/Kids', [])
+                    kid_states = []
+                    for kid_ref in kids:
+                        try:
+                            kid = kid_ref.get_object()
+                            ap = kid.get('/AP', {})
+                            if hasattr(ap, 'get_object'): ap = ap.get_object()
+                            n = ap.get('/N', {})
+                            if hasattr(n, 'get_object'): n = n.get_object()
+                            states = list(n.keys())
+                        except Exception:
+                            states = []
+                        kid_states.append(states)
+                    result[name] = kid_states
+                elif '/Kids' in f and ft not in ('/Btn', '/Tx', '/Ch'):
+                    walk(f['/Kids'], name)
+        walk(acroform.get('/Fields', []))
+        return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

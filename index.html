@@ -604,16 +604,88 @@
     }
   });
 
+  // ── Question registry ──────────────────────────────────────
+  const Q_LABELS = {
+    'R1':    'R1 – CoP submission format',
+    'R2':    'R2 – Report/website URL',
+    'R3':    'R3 – Reporting period',
+    'S1':    'S1 – Successful initiatives (checkboxes)',
+    'S2':    'S2 – Future priority areas (checkboxes)',
+    'G1':    'G1 – Board actions on sustainability (checkboxes)',
+    'G2':    'G2 – Code of conduct matrix',
+    'G3':    'G3 – Responsibility assignment matrix',
+    'G4':    'G4 – Stakeholder engagement matrix',
+    'G5':    'G5 – Risk/opportunity assessment matrix',
+    'G6':    'G6 – Engagement mechanisms matrix',
+    'G8':    'G8 – Board composition (numbers)',
+    'G10':   'G10 – Women in management (%)',
+    'G11':   'G11 – Women in total workforce (%)',
+    'G12':   'G12 – Sustainable finance approach',
+    'G13':   'G13 – Reporting frameworks (checkboxes)',
+    'G14':   'G14 – Collaborative sustainability initiatives',
+    'E1':    'E1 – Environmental policy matrix',
+    'E4':    'E4 – Environmental adverse impact matrix',
+    'E5':    'E5 – GHG emissions (Scope 1 & 2)',
+    'E6':    'E6 – Scope 3 GHG emissions',
+    'E8':    'E8 – Climate risk assessment (checkboxes)',
+    'E9':    'E9 – Fossil fuel phase-out targets (checkboxes)',
+    'E11':   'E11 – Material environmental topics',
+    'E13':   'E13 – Water consumption',
+    'E14':   'E14 – Climate action plan',
+    'E16':   'E16 – Circular economy practices (checkboxes)',
+    'HR/L2': 'HR/L2 – HR & Labour policy matrix',
+    'HR/L5': 'HR/L5 – HR & Labour adverse impact matrix',
+    'HR/L6': 'HR/L6 – Women in workforce (% or unknown)',
+    'HR/L7': 'HR/L7 – Work-related accident rate',
+    'AC1':   'AC1 – Anti-corruption policy existence',
+    'AC1.1': 'AC1.1 – Policy attributes (checkboxes)',
+    'AC2':   'AC2 – Anti-corruption programme',
+    'AC3':   'AC3 – Corruption incident reporting',
+    'AC4':   'AC4 – Anti-corruption training (checkboxes)',
+    'AC5':   'AC5 – Incident detection mechanisms (checkboxes)',
+    'AC6':   'AC6 – Incident response actions (checkboxes)',
+    'AC7':   'AC7 – Corruption incidents description',
+  };
+  const ALL_QIDS = Object.keys(Q_LABELS);
+
   // ── Results ────────────────────────────────────────────────
   function renderResults(data) {
     const filled = data.filled_count || 0;
-    document.getElementById('stat-filled').textContent = filled;
-    document.getElementById('stat-pending').textContent = '–';
-    document.getElementById('stat-total').textContent = '–';
-    document.getElementById('results-subtitle').textContent =
-      `${selectedCompany} — ${filled} question group(s) pre-filled from 2025 data.`;
+    const filledSet = new Set(data.filled_qids || []);
+    const pending = ALL_QIDS.filter(q => !filledSet.has(q));
+    const total = ALL_QIDS.length;
 
-    document.getElementById('pending-section').style.display = 'none';
+    document.getElementById('stat-filled').textContent = filled;
+    document.getElementById('stat-pending').textContent = pending.length;
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('results-subtitle').textContent =
+      `${selectedCompany} — ${filled} of ${total} questions pre-filled from 2025 data.`;
+
+    const pendingSection = document.getElementById('pending-section');
+    const pendingList = document.getElementById('pending-list');
+
+    if (pending.length === 0) {
+      pendingSection.style.display = 'none';
+    } else {
+      pendingSection.style.display = 'block';
+      pendingList.innerHTML = pending.map(qid =>
+        `<div class="pending-item">
+          <span class="qid-badge">${qid}</span>
+          <span class="q-text">${Q_LABELS[qid] || qid}</span>
+        </div>`
+      ).join('');
+
+      document.getElementById('copy-btn').onclick = () => {
+        const text = pending.map(q => `${q}: ${Q_LABELS[q] || q}`).join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = document.getElementById('copy-btn');
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy list'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+    }
+
     document.getElementById('results').style.display = 'block';
   }
 
