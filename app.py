@@ -22,20 +22,29 @@ def _load():
     ws = wb.active
     rows = ws.iter_rows(values_only=True)
     hdrs = [str(c or '') for c in next(rows)]
-    c = {h: i for i, h in enumerate(hdrs)}
+    col = {h: i for i, h in enumerate(hdrs)}
+
+    def _get(row, key, default=''):
+        idx = col.get(key)
+        if idx is None or idx >= len(row):
+            return default
+        return str(row[idx] or '').strip()
+
     data, names = {}, set()
     for row in rows:
-        name    = str(row[c['NAME']]        or '').strip()
-        country = str(row[c.get('COUNTRY', -1)] or '').strip() if 'COUNTRY' in c else ''
+        if not row:
+            continue
+        name    = _get(row, 'NAME')
+        country = _get(row, 'COUNTRY')
         if not name or (country and country not in ('Malaysia', 'Brunei')):
             continue
         names.add(name)
         data.setdefault(name, []).append({
-            'section':     str(row[c['SECTION']]      or '').strip(),
-            'question_id': str(row[c['QUESTION_ID']]  or '').strip(),
-            'subquestion': str(row[c['SUBQUESTION']]  or '').strip(),
-            'choice':      str(row[c['CHOICE']]       or '').strip(),
-            'response':    str(row[c['RESPONSE']]     or '').strip(),
+            'section':     _get(row, 'SECTION'),
+            'question_id': _get(row, 'QUESTION_ID'),
+            'subquestion': _get(row, 'SUBQUESTION'),
+            'choice':      _get(row, 'CHOICE'),
+            'response':    _get(row, 'RESPONSE'),
         })
     wb.close()
     _cache = (sorted(names), data)
