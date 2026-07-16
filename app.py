@@ -697,7 +697,14 @@ CHECKBOX_MAP = {
 # Binary Yes/No radio matrices where the CHOICE (or SUBQUESTION) identifies the row.
 # For each matching row: radio_values[field] = 1 (Yes = kid index 1).
 # Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
-CONCAT_TEXT_FIELDS = {}
+CONCAT_TEXT_FIELDS = {
+    # HR/L1 and HR/L1.1 are BOTH backed by the same PDF text field "HR/L1.1 Text Field 001".
+    # The AcroForm for HR/L1 is a group with one /Tx child (T="1 Text Field 001"), giving the
+    # full path "HR/L1.1 Text Field 001". The visual checkboxes are decorative/JS-rendered —
+    # the actual form data goes here as text. Accumulate all selected topic choices.
+    'HR/L1':   'HR/L1.1 Text Field 001',
+    'HR/L1.1': 'HR/L1.1 Text Field 001',
+}
 
 BINARY_SELECT = {
     'E11': {
