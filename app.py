@@ -1,18 +1,15 @@
-import os, csv, re, io, base64
+import os, json, re, io, base64, urllib.request, urllib.parse
 from flask import Flask, request, jsonify
 from openpyxl import load_workbook
 
 app = Flask(__name__)
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-API_DIR      = os.path.join(os.path.dirname(__file__), 'api')
-TEMPLATE_PATH = os.path.join(API_DIR, 'template.xlsx')
-CSV_PATH      = os.path.join(API_DIR, 'cop_data_malaysia.csv')
+SUPABASE_URL  = os.environ.get('SUPABASE_URL', 'https://qlvlpvgyjoeprvghmoyn.supabase.co').lstrip('﻿').strip()
+SUPABASE_KEY  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').lstrip('﻿').strip()
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'api', 'template.xlsx')
 
 # ---------------------------------------------------------------------------
-# Sheet / section config
+# Sheet / section routing
 # ---------------------------------------------------------------------------
 SHEET_SECTION_MAP = {
     'Governance':               ' Governance',
@@ -20,7 +17,6 @@ SHEET_SECTION_MAP = {
     'Environment':              'Environment',
     'Anti-Corruption':          ' Anti-Corruption',
 }
-
 SUCCESS_STORIES_SHEET = 'Success Stories & Future Priori'
 
 Q_PATTERN = re.compile(
@@ -31,14 +27,25 @@ Q_PATTERN = re.compile(
 SUFFIX_PATTERN = re.compile(r'^(.*?\d+)([A-Z]+)$')
 
 # ---------------------------------------------------------------------------
-# 2025 → 2026 remappings
+# 2025 → 2026 question ID remap (numbering shifted between years)
 # ---------------------------------------------------------------------------
 QUESTION_ID_MAP_2025_TO_2026 = {
-    'G12': 'G13',
-    'G13': 'G14',
-    'E5':  'E7',
-    'E7':  'E8',
-    'E10': 'E11',
+    'G12': 'G13',   # sustainability reporting → shifted when new G12 inserted
+    'G13': 'G14',   # third-party assurance
+    'E5':  'E7',    # GHG target validated by third-party
+    'E7':  'E8',    # climate adaptation plan
+    'E10': 'E11',   # material environmental topics
+}
+
+# ---------------------------------------------------------------------------
+# 2025 → 2026 choice text remap (option wording changed between years)
+# Applied after normalize(); keys and values are already lowercased.
+# ---------------------------------------------------------------------------
+_CHOICE_REMAP = {
+    'yes, focused on our own operations and the value chain (e.g., suppliers, consumers, communities, other business relationships)':
+        'yes, focused on employees and the value chain (e.g., suppliers, consumers, communities, other business relationships)',
+    'yes, focused on our own operations and the value chain':
+        'yes, focused on employees and the value chain',
 }
 
 CHECKBOX = '❑'
@@ -47,51 +54,26 @@ RADIO    = '🔾'
 SELECTED = '🔘'
 
 # ---------------------------------------------------------------------------
-# CSV data loading
+# Helpers
 # ---------------------------------------------------------------------------
 
-def _load_csv():
-    """Load cop_data_malaysia.csv → dict: company_name → list of answer rows."""
-    data = {}
-    if not os.path.exists(CSV_PATH):
-        return data
-    with open(CSV_PATH, encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            name = row.get('NAME', '').strip()
-            if not name:
-                continue
-            data.setdefault(name, []).append(row)
-    return data
+def supabase_get(path):
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/{path}",
+        headers={'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read())
 
-
-# Load once at startup; Vercel re-uses the instance across warm requests.
-_CSV_DATA = _load_csv()
-
-
-def get_companies():
-    return sorted(_CSV_DATA.keys())
-
-
-def get_submissions(company_name):
-    """Return list of dicts with keys: SECTION, QUESTION_ID, SUBQUESTION, CHOICE, RESPONSE."""
-    rows = _CSV_DATA.get(company_name, [])
-    seen, unique = set(), []
-    for r in rows:
-        key = (r.get('QUESTION_ID',''), r.get('SUBQUESTION',''),
-               r.get('CHOICE',''), r.get('RESPONSE',''))
-        if key not in seen:
-            seen.add(key)
-            unique.append(r)
-    return unique
-
-# ---------------------------------------------------------------------------
-# Text matching helpers
-# ---------------------------------------------------------------------------
 
 def normalize(s):
     return re.sub(r'\s+', ' ', str(s or '').lower().strip()
                   .replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' '))
+
+
+def remap_choice(text):
+    key = normalize(text)
+    return _CHOICE_REMAP.get(key, key)
 
 
 def texts_match(a, b):
@@ -100,9 +82,6 @@ def texts_match(a, b):
         return False
     return a == b or b.startswith(a) or a.startswith(b)
 
-# ---------------------------------------------------------------------------
-# Excel helpers
-# ---------------------------------------------------------------------------
 
 def parse_question_locs(ws):
     locs = []
@@ -123,13 +102,13 @@ def fill_sheet(ws, subs):
     filled_qids = []
 
     for sub in subs:
-        qid      = sub['QUESTION_ID'].strip()
-        choice   = str(sub.get('CHOICE', '')    or '').strip()
-        subq     = str(sub.get('SUBQUESTION','')or '').strip()
-        response = str(sub.get('RESPONSE', '')  or '').strip()
+        qid      = sub['question_id']
+        choice   = str(sub.get('choice', '')      or '').strip()
+        subq     = str(sub.get('subquestion', '') or '').strip()
+        response = str(sub.get('response', '')    or '').strip()
 
-        # Apply 2025→2026 question ID remap
-        qid = QUESTION_ID_MAP_2025_TO_2026.get(qid, qid)
+        # Remap choice text if wording changed between 2025 and 2026
+        choice_n = remap_choice(choice)
 
         q_row = q_dict.get(qid)
         parent_qid = qid
@@ -164,12 +143,12 @@ def fill_sheet(ws, subs):
                 val = str(cell.value)
                 if val.startswith(CHECKBOX):
                     option_text = val[len(CHECKBOX):].strip()
-                    if texts_match(choice, option_text):
+                    if texts_match(choice_n, normalize(option_text)):
                         cell.value = CHECKED + ' ' + option_text
                         success = True
                 elif val.startswith(RADIO):
                     option_text = val[len(RADIO):].strip()
-                    if texts_match(choice, option_text):
+                    if texts_match(choice_n, normalize(option_text)):
                         cell.value = SELECTED + ' ' + option_text
                         success = True
                         break
@@ -198,8 +177,6 @@ def fill_sheet(ws, subs):
 
                 if target_data_row is not None:
                     data_row = all_rows[target_data_row]
-                    choice_n = normalize(choice)
-
                     target_col = None
                     for col_idx, header_text in header_cols.items():
                         if texts_match(choice_n, header_text):
@@ -242,11 +219,11 @@ def fill_sheet(ws, subs):
 def get_all_excel_qids(wb):
     results = []
     sheets = list(SHEET_SECTION_MAP.items()) + [('Success Stories', SUCCESS_STORIES_SHEET)]
-    seen_sheets = set()
+    seen = set()
     for section, sheet_name in sheets:
-        if sheet_name in seen_sheets:
+        if sheet_name in seen:
             continue
-        seen_sheets.add(sheet_name)
+        seen.add(sheet_name)
         try:
             ws = wb[sheet_name]
         except KeyError:
@@ -280,7 +257,12 @@ def cors(response):
 def companies():
     if request.method == 'OPTIONS':
         return '', 200
-    return jsonify(get_companies())
+    try:
+        rows = supabase_get('companies?network=eq.MY&select=company_name&order=company_name')
+        names = [r['company_name'] for r in rows if r.get('company_name')]
+        return jsonify(names)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/generate', methods=['POST', 'OPTIONS'])
@@ -293,16 +275,34 @@ def generate():
         if not company_name:
             return jsonify({'error': 'company_name is required'}), 400
 
-        subs = get_submissions(company_name)
-        if not subs:
-            return jsonify({'error': f'No 2025 CoP data found for "{company_name}". They may not have submitted a 2025 CoP yet.'}), 404
+        encoded = urllib.parse.quote(company_name)
+        subs = supabase_get(
+            f'company_submissions?network=eq.MY'
+            f'&company_name=eq.{encoded}'
+            f'&select=question_id,section,subquestion,choice,response'
+            f'&order=section,question_id'
+        )
 
-        # Group by section — S* questions go to Success Stories sheet
-        by_section: dict = {}
+        # Deduplicate
+        seen, unique_subs = set(), []
         for s in subs:
-            section = str(s.get('SECTION', '')).strip()
-            qid     = str(s.get('QUESTION_ID', '')).strip()
-            if re.match(r'^S\d+', qid):
+            key = (s['question_id'], s.get('subquestion', ''),
+                   s.get('choice', ''), s.get('response', ''))
+            if key not in seen:
+                seen.add(key)
+                unique_subs.append(s)
+
+        # Remap 2025 question IDs that shifted in 2026
+        for s in unique_subs:
+            mapped = QUESTION_ID_MAP_2025_TO_2026.get(s['question_id'])
+            if mapped:
+                s['question_id'] = mapped
+
+        # Group by section; S* questions → Success Stories sheet
+        by_section = {}
+        for s in unique_subs:
+            section = s.get('section', '')
+            if re.match(r'^S\d+', s['question_id']):
                 section = '_SuccessStories'
             by_section.setdefault(section, []).append(s)
 
@@ -320,8 +320,7 @@ def generate():
                 ws = wb[sheet_name]
             except KeyError:
                 continue
-            filled = fill_sheet(ws, section_subs)
-            all_filled.extend(filled)
+            all_filled.extend(fill_sheet(ws, section_subs))
 
         all_excel_qids = get_all_excel_qids(wb)
         filled_set = set(all_filled)
@@ -331,15 +330,14 @@ def generate():
         wb.save(buf)
         buf.seek(0)
         excel_b64 = base64.b64encode(buf.read()).decode()
-
         safe_name = re.sub(r'[^\w\s-]', '', company_name).strip().replace(' ', '_')
 
         return jsonify({
-            'excel_base64': excel_b64,
-            'filename':       f'CoP_2026_{safe_name}.xlsx',
-            'total_filled':   len(filled_set),
+            'excel_base64':    excel_b64,
+            'filename':        f'CoP_2026_{safe_name}.xlsx',
+            'total_filled':    len(filled_set),
             'total_questions': len(all_excel_qids),
-            'pending':        pending,
+            'pending':         pending,
         })
 
     except Exception as e:
