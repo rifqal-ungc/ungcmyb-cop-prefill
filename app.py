@@ -309,10 +309,11 @@ MATRIX_RADIO = {
     'G5.1': {
         'options': ['no', 'yes'],
         'rows': _gov_rows('G5.1'),
-        'text_field': None,
+        'text_field': 'G5.1 Text Field 7',
     },
     # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute).
     # Row labels use the 2025 subquestion prefix so _match() hits on startswith.
+    # /api/fields confirms only 4 radio buttons (1-4) — no Button 5.
     'G6.1': {
         'options': ['no', 'yes'],
         'rows': [
@@ -320,9 +321,8 @@ MATRIX_RADIO = {
             ('is the process available to non-employees',                'G6.1 Radio Button 2'),
             ('is the process confidential',                              'G6.1 Radio Button 3'),
             ('are there processes in place to avoid retaliation',        'G6.1 Radio Button 4'),
-            ('can concerns be raised about suppliers',                   'G6.1 Radio Button 5'),
         ],
-        'text_field': None,
+        'text_field': 'G6.1 Text Field 8',
     },
     # G7: tracking effectiveness per topic (4 rows × 4 options)
     'G7': {
@@ -346,7 +346,7 @@ MATRIX_RADIO = {
             ('gender equality',           'G7.1 Radio Button 5'),
             ('supply chain sustainability', 'G7.1 Radio Button 6'),
         ],
-        'text_field': None,
+        'text_field': 'G7.1 Text Field 9',
     },
     # ── Environment ─────────────────────────────────────────────────────────
     'E1': {
@@ -652,15 +652,19 @@ CHECKBOX_MAP = {
         'text_field': 'G13 Text Field 12',
     },
     'AC1.1': {
+        # /api/fields confirms AC1.1 Check Box 1-6 exist.
+        # Note: "applied to own operations" is a prefix of "applied to own operations and suppliers"
+        # so both the shorter and longer choices will set Box 3 (bidirectional prefix match).
+        # This is acceptable — Box 3 checked as a superset doesn't harm the PDF read.
         'fields': {
-            'publicly available':                                       'AC1',
-            'approved at most senior level of the company':             'AC1',
-            'applied to the company\'s own operations':                 'AC1',
-            'applied to the company\'s suppliers':                      'AC1',
-            'applied to the other stakeholders within the company\'s value chain': 'AC1',
-            'other (please provide additional information)':            'AC1',
+            'publicly available':                                               'AC1.1 Check Box 1',
+            'approved at most senior level of the company':                     'AC1.1 Check Box 2',
+            "applied to the company's own operations":                          'AC1.1 Check Box 3',
+            "applied to the company's own operations and suppliers":            'AC1.1 Check Box 4',
+            "applied to the other stakeholders within the company's value chain": 'AC1.1 Check Box 5',
+            'other (please provide additional information)':                    'AC1.1 Check Box 6',
         },
-        'text_field': None,
+        'text_field': 'AC1.1 Text Field 16',
     },
 }
 
@@ -721,6 +725,21 @@ TEXT_FIELDS = {
     'S1A':  'S1 Text Field 3',
     'S2A':  'S2 Text Field 4',
     'G1A':  'G1 Text Field 5',
+    # Confirmed from /api/fields:
+    'G5.1A': 'G5.1 Text Field 7',
+    'G6.1A': 'G6.1 Text Field 8',
+    'G7.1A': 'G7.1 Text Field 9',
+    # HR/L8: text description of living wage commitment
+    'HR/L8': 'L8 Text Field ',
+    'L8':    'L8 Text Field ',
+    # AC1.1A: additional info for anti-corruption policy scope
+    'AC1.1A': 'AC1.1 Text Field 16',
+    # E2 and E3 "AA" text variants seen in some submissions
+    'E2AA': 'E2 Text Field 1',
+    'E3AA': 'E3 Text Field 1',
+    # L6 second text field (denominator / total headcount)
+    'HR/L6A': 'L6 Text Field 2',
+    'L6A':    'L6 Text Field 2',
 }
 
 # ---------------------------------------------------------------------------
@@ -1067,6 +1086,58 @@ def debug_radio():
                     result[name] = kid_states
                 elif '/Kids' in f and ft not in ('/Btn', '/Tx', '/Ch'):
                     walk(f['/Kids'], name)
+        walk(acroform.get('/Fields', []))
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/debug/field-tree', methods=['GET'])
+def debug_field_tree():
+    """Debug: dump EVERY field in the AcroForm tree (including nested checkbox children).
+    Use this to find the actual field names for HR/L1 checkboxes and similar nested groups."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        acroform = reader.trailer['/Root']['/AcroForm'].get_object()
+        result = {}
+
+        def walk(fields, path=''):
+            for fref in fields:
+                try:
+                    f = fref.get_object()
+                except Exception:
+                    continue
+                ft   = str(f.get('/FT', ''))
+                t    = str(f.get('/T',  ''))
+                ff   = int(f.get('/Ff', 0))
+                name = (path + '.' + t if path else t).strip('.')
+                is_radio    = (ft == '/Btn') and bool(ff & (1 << 15))
+                is_checkbox = (ft == '/Btn') and not is_radio
+                if is_radio:
+                    kids = f.get('/Kids', [])
+                    result[name] = {'type': 'radio', 'kids': len(kids)}
+                elif is_checkbox:
+                    result[name] = {'type': 'checkbox', 'v': str(f.get('/V', ''))}
+                elif ft == '/Tx':
+                    result[name] = {'type': 'text', 'v': str(f.get('/V', ''))}
+                elif '/Kids' in f:
+                    result[name] = {'type': 'group'}
+                    walk(f['/Kids'], name)
+                    continue
+                if '/Kids' in f and is_radio:
+                    for i, kid_ref in enumerate(f['/Kids']):
+                        try:
+                            kid = kid_ref.get_object()
+                            kid_t = str(kid.get('/T', ''))
+                            kid_name = f'{name}.kid{i}' if not kid_t else f'{name}.{kid_t}'
+                            kid_ft = str(kid.get('/FT', ''))
+                            kid_ff = int(kid.get('/Ff', 0))
+                            kid_is_checkbox = (kid_ft == '/Btn') and not ((kid_ft == '/Btn') and bool(kid_ff & (1 << 15)))
+                            if kid_is_checkbox:
+                                result[kid_name] = {'type': 'checkbox', 'v': str(kid.get('/V', ''))}
+                        except Exception:
+                            pass
+
         walk(acroform.get('/Fields', []))
         return jsonify(result)
     except Exception as e:
