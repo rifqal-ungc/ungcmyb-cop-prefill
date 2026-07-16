@@ -466,11 +466,17 @@
   async function loadCompanies() {
     try {
       const res = await fetch(BASE + '/api/companies');
-      allCompanies = await res.json();
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data)) {
+        const msg = data && data.error ? data.error : JSON.stringify(data);
+        showStatus('error', 'Failed to load companies: ' + msg);
+        return;
+      }
+      allCompanies = data;
       input.disabled = false;
       input.placeholder = `Search ${allCompanies.length} companies…`;
     } catch (e) {
-      showStatus('error', 'Failed to load company list. Please refresh.');
+      showStatus('error', 'Failed to load company list: ' + e.message);
     }
   }
   loadCompanies();

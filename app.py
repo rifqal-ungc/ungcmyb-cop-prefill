@@ -5,7 +5,7 @@ from pypdf import PdfReader, PdfWriter
 
 app = Flask(__name__)
 
-BASE      = os.path.dirname(__file__)
+BASE      = os.path.dirname(os.path.abspath(__file__))
 XLSX_PATH = os.path.join(BASE, 'data', 'submissions.xlsx')
 PDF_PATH  = os.path.join(BASE, 'api', 'template.pdf')
 
