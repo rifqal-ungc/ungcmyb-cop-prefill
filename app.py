@@ -100,6 +100,8 @@ _CREMAP = {
     'choose to not disclose': 'choose not to disclose',
     'every year': 'annually',
     'every 2 years': 'every two years',
+    # E6: 2025 Scope 3 measurement answer "Known" maps to 2026 "yes"
+    'known': 'yes',
 }
 
 def _remap(text):
@@ -116,6 +118,11 @@ _SUBQ_REMAP = {
     # HR/L non-discrimination: 2025 omits "and equality" that 2026 added
     'non-discrimination in respect of employment and occupation':
         'non-discrimination and equality (in respect of employment and occupation)',
+    # Env topics: 2025 used verbose "Waste (e.g., ...)" label; 2026 shortened to "Waste management"
+    'waste (e.g., chemical spills, solid waste, hazardous, plastic, etc.)': 'waste management',
+    # Shorter 2025 aliases for topics that kept the same meaning
+    'waste':              'waste management',
+    'energy & resource use': 'energy & resource use',   # explicit passthrough (no change needed)
 }
 
 def _remap_subq(subq):
@@ -306,16 +313,18 @@ MATRIX_RADIO = {
         'text_field': 'G6 Text Field 8',
     },
     # G5.1: conditional on G5 — which topics are included in due diligence (Yes/No per topic)
+    # PDF column order: Yes (kid 0) | No (kid 1)
     'G5.1': {
-        'options': ['no', 'yes'],
+        'options': ['yes', 'no'],
         'rows': _gov_rows('G5.1'),
         'text_field': 'G5.1 Text Field 7',
     },
     # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute).
     # Row labels use the 2025 subquestion prefix so _match() hits on startswith.
     # /api/fields confirms only 4 radio buttons (1-4) — no Button 5.
+    # PDF column order: Yes (kid 0) | No (kid 1)
     'G6.1': {
-        'options': ['no', 'yes'],
+        'options': ['yes', 'no'],
         'rows': [
             ('is the process communicated to all employees',             'G6.1 Radio Button 1'),
             ('is the process available to non-employees',                'G6.1 Radio Button 2'),
@@ -336,8 +345,9 @@ MATRIX_RADIO = {
         'text_field': None,
     },
     # G7.1: conditional on G7 — public reporting on tracking (Yes/No per topic)
+    # PDF column order: Yes (kid 0) | No (kid 1)
     'G7.1': {
-        'options': ['no', 'yes'],
+        'options': ['yes', 'no'],
         'rows': [
             ('human rights',              'G7.1 Radio Button 1'),
             ('labour rights/decent work', 'G7.1 Radio Button 2'),
@@ -799,6 +809,12 @@ TEXT_FIELDS = {
     # 'E7A': 'E5 Text Field 7' would handle the remapped path but E7 is now a checkbox Q.
     # E11 additional text fields (GHG measurements per topic)
     'E11A': 'E11 Text Field 1',
+    # Additional IDs seen in some submissions
+    'E1AAA':   'E1 Text Field 1',       # extra additional-info variant for E1
+    'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
+    'G6.1AA':  'G6.1 Text Field 8',    # additional additional-info for G6.1
+    'HR/L1A':  'HR/L1.1 Text Field 001',  # HR/L1 additional topic info (same text field)
+    'E5.1AA':  'E5.1 Text Field 7',    # E5.1 additional info (field name may vary — verify)
 }
 
 # ---------------------------------------------------------------------------
@@ -978,9 +994,11 @@ def _fill_pdf(subs):
                 field_values[TEXT_FIELDS[qid]] = val
                 filled_qids.add(qid)
 
-    # Fill text + checkboxes via standard pypdf API
+    # Fill text + checkboxes via standard pypdf API.
+    # auto_regenerate=True rebuilds each field's appearance stream from its /V value,
+    # ensuring text fields display their content even when the template has a stale /AP.
     for page in writer.pages:
-        writer.update_page_form_field_values(page, field_values, auto_regenerate=False)
+        writer.update_page_form_field_values(page, field_values, auto_regenerate=True)
 
     # Fill radio buttons via direct AcroForm tree walk
     _set_radio_fields(writer, radio_values)
