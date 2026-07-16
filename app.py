@@ -651,6 +651,32 @@ CHECKBOX_MAP = {
         },
         'text_field': 'G13 Text Field 12',
     },
+    # HR/L2.2: single checkbox — whether policy references right to form/join a trade union
+    'HR/L2.2': {
+        'fields': {
+            'reference the respect for the right': 'L2.2 Check Box 1',
+        },
+        'text_field': 'L2.2 Text Field 15',
+    },
+    'L2.2': {
+        'fields': {
+            'reference the respect for the right': 'L2.2 Check Box 1',
+        },
+        'text_field': 'L2.2 Text Field 15',
+    },
+    # HR/L2.3: single checkbox — no collective bargaining agreement in place
+    'HR/L2.3': {
+        'fields': {
+            'there is no existing collective bargaining': 'L2.3 Check Box 1',
+        },
+        'text_field': 'L2.3 Text Field 15',
+    },
+    'L2.3': {
+        'fields': {
+            'there is no existing collective bargaining': 'L2.3 Check Box 1',
+        },
+        'text_field': 'L2.3 Text Field 15',
+    },
     'AC1.1': {
         # /api/fields confirms AC1.1 Check Box 1-6 exist.
         # Note: "applied to own operations" is a prefix of "applied to own operations and suppliers"
@@ -671,6 +697,15 @@ CHECKBOX_MAP = {
 # Binary Yes/No radio matrices where the CHOICE (or SUBQUESTION) identifies the row.
 # For each matching row: radio_values[field] = 1 (Yes = kid index 1).
 # Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
+CONCAT_TEXT_FIELDS = {
+    # HR/L1.1: 2026 PDF has only a single text field (HR/L1.1 Text Field 001), not named checkboxes.
+    # Accumulate all 2025 choice rows into a semicolon-separated list.
+    'HR/L1.1': 'HR/L1.1 Text Field 001',
+    # HR/L1 checkboxes are orphan widget annotations (not in AcroForm field tree) — cannot fill
+    # as checkboxes. Concatenate selected topics into the same text field as a fallback.
+    'HR/L1': 'HR/L1.1 Text Field 001',
+}
+
 BINARY_SELECT = {
     'E11': {
         'rows': [
@@ -740,6 +775,30 @@ TEXT_FIELDS = {
     # L6 second text field (denominator / total headcount)
     'HR/L6A': 'L6 Text Field 2',
     'L6A':    'L6 Text Field 2',
+    # HR/L5 additional info text (note: period in field name confirmed by field-tree)
+    'HR/L5A': 'L5. Text Field 9',
+    'L5A':    'L5. Text Field 9',
+    # HR/L3, HR/L4 additional info text fields (trailing space confirmed by field-tree)
+    'HR/L3A': 'L3 Text Field ',
+    'L3A':    'L3 Text Field ',
+    'HR/L4A': 'L4 Text Field ',
+    'L4A':    'L4 Text Field ',
+    # HR/L4.1 additional info
+    'HR/L4.1A': 'L4.1 Text Field ',
+    'L4.1A':    'L4.1 Text Field ',
+    # HR/L2.1 additional info
+    'HR/L2.1A': 'L2.1 Text Field 14',
+    'L2.1A':    'L2.1 Text Field 14',
+    # E3.1 additional info text
+    'E3.1A':  'E3.1 Text Field 1',
+    # E3.1.1 target descriptions — concatenate all into first text field
+    'E3.1.1': 'E3.1.1 Text Field 1',
+    'E3.1.1A': 'E3.1.1 Text Field 1',
+    # E5 (stays as E5 in 2026; ID_REMAP shifted old E5→E7, E7→E8)
+    # Our existing TEXT_FIELDS['E5'] = 'E5 Text Field 7' is unreachable after ID_REMAP.
+    # 'E7A': 'E5 Text Field 7' would handle the remapped path but E7 is now a checkbox Q.
+    # E11 additional text fields (GHG measurements per topic)
+    'E11A': 'E11 Text Field 1',
 }
 
 # ---------------------------------------------------------------------------
@@ -902,6 +961,15 @@ def _fill_pdf(subs):
                 if _match(subq, label) or _match(choice, label):
                     radio_values[fname] = 1   # Yes = kid index 1
                     filled_qids.add(qid)
+
+        # ── CONCAT TEXT (multi-row choices accumulated into one text field) ──
+        elif qid in CONCAT_TEXT_FIELDS:
+            fname = CONCAT_TEXT_FIELDS[qid]
+            val = (response or choice).strip()
+            if val:
+                existing = field_values.get(fname, '')
+                field_values[fname] = (existing + '; ' + val) if existing else val
+                filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
         elif qid in TEXT_FIELDS:
