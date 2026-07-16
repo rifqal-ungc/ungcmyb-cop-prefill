@@ -697,14 +697,7 @@ CHECKBOX_MAP = {
 # Binary Yes/No radio matrices where the CHOICE (or SUBQUESTION) identifies the row.
 # For each matching row: radio_values[field] = 1 (Yes = kid index 1).
 # Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
-CONCAT_TEXT_FIELDS = {
-    # HR/L1.1: 2026 PDF has only a single text field (HR/L1.1 Text Field 001), not named checkboxes.
-    # Accumulate all 2025 choice rows into a semicolon-separated list.
-    'HR/L1.1': 'HR/L1.1 Text Field 001',
-    # HR/L1 checkboxes are orphan widget annotations (not in AcroForm field tree) — cannot fill
-    # as checkboxes. Concatenate selected topics into the same text field as a fallback.
-    'HR/L1': 'HR/L1.1 Text Field 001',
-}
+CONCAT_TEXT_FIELDS = {}
 
 BINARY_SELECT = {
     'E11': {
