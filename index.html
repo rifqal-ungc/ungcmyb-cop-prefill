@@ -429,8 +429,12 @@
         <div class="stat-label">Questions Pre-Filled</div>
       </div>
       <div class="stat-box warn">
-        <div class="stat-num" id="stat-pending">–</div>
-        <div class="stat-label">Need Manual Input</div>
+        <div class="stat-num" id="stat-pending-mandatory">–</div>
+        <div class="stat-label">Manual Input (Mandatory)</div>
+      </div>
+      <div class="stat-box" style="--accent: var(--gold)">
+        <div class="stat-num" id="stat-pending-total" style="color:var(--gold)">–</div>
+        <div class="stat-label">Manual Input (Total)</div>
       </div>
       <div class="stat-box">
         <div class="stat-num" id="stat-total">–</div>
@@ -604,79 +608,142 @@
     }
   });
 
-  // ── Question registry ──────────────────────────────────────
-  const Q_LABELS = {
-    'R1':    'R1 – CoP submission format',
-    'R2':    'R2 – Report/website URL',
-    'R3':    'R3 – Reporting period',
-    'S1':    'S1 – Successful initiatives (checkboxes)',
-    'S2':    'S2 – Future priority areas (checkboxes)',
-    'G1':    'G1 – Board actions on sustainability (checkboxes)',
-    'G2':    'G2 – Code of conduct matrix',
-    'G3':    'G3 – Responsibility assignment matrix',
-    'G4':    'G4 – Stakeholder engagement matrix',
-    'G5':    'G5 – Risk/opportunity assessment matrix',
-    'G6':    'G6 – Engagement mechanisms matrix',
-    'G8':    'G8 – Board composition (numbers)',
-    'G10':   'G10 – Women in management (%)',
-    'G11':   'G11 – Women in total workforce (%)',
-    'G12':   'G12 – Sustainable finance approach',
-    'G13':   'G13 – Reporting frameworks (checkboxes)',
-    'G14':   'G14 – Collaborative sustainability initiatives',
-    'E1':    'E1 – Environmental policy matrix',
-    'E4':    'E4 – Environmental adverse impact matrix',
-    'E5':    'E5 – GHG emissions (Scope 1 & 2)',
-    'E6':    'E6 – Scope 3 GHG emissions',
-    'E8':    'E8 – Climate risk assessment (checkboxes)',
-    'E9':    'E9 – Fossil fuel phase-out targets (checkboxes)',
-    'E11':   'E11 – Material environmental topics',
-    'E13':   'E13 – Water consumption',
-    'E14':   'E14 – Climate action plan',
-    'E16':   'E16 – Circular economy practices (checkboxes)',
-    'HR/L2': 'HR/L2 – HR & Labour policy matrix',
-    'HR/L5': 'HR/L5 – HR & Labour adverse impact matrix',
-    'HR/L6': 'HR/L6 – Women in workforce (% or unknown)',
-    'HR/L7': 'HR/L7 – Work-related accident rate',
-    'AC1':   'AC1 – Anti-corruption policy existence',
-    'AC1.1': 'AC1.1 – Policy attributes (checkboxes)',
-    'AC2':   'AC2 – Anti-corruption programme',
-    'AC3':   'AC3 – Corruption incident reporting',
-    'AC4':   'AC4 – Anti-corruption training (checkboxes)',
-    'AC5':   'AC5 – Incident detection mechanisms (checkboxes)',
-    'AC6':   'AC6 – Incident response actions (checkboxes)',
-    'AC7':   'AC7 – Corruption incidents description',
+  // ── Question registry (2026 form) ─────────────────────────
+  // Mandatory: always shown in the form
+  const Q_MANDATORY = {
+    'R1':     'R1 – CoP submission format',
+    'R2':     'R2 – Reporting time period',
+    'S2':     'S2 – Future priority areas',
+    'G1':     'G1 – Board actions on sustainability',
+    'G2':     'G2 – Code of conduct (matrix)',
+    'G3':     'G3 – Responsibility assignment (matrix)',
+    'G4':     'G4 – Risk identification process (matrix)',
+    'G5':     'G5 – Due diligence process (matrix)',
+    'G6':     'G6 – Grievance mechanisms (matrix)',
+    'G7':     'G7 – Tracking effectiveness (matrix) ★ NEW',
+    'G8':     'G8 – Executive pay linked to sustainability ★ NEW matrix',
+    'G9':     'G9 – Board composition (numbers)',
+    'G10':    'G10 – Women in management (%)',
+    'G11':    'G11 – C-suite gender representation ★ NEW',
+    'G12':    'G12 – Sustainable finance approach',
+    'G13':    'G13 – Reporting frameworks',
+    'G14':    'G14 – Third-party data assurance',
+    'HR/L1':  'HR/L1 – Material HR & labour topics ★ NEW',
+    'HR/L1.1':'HR/L1.1 – Additional material topics ★ NEW',
+    'HR/L2':  'HR/L2 – Policy commitment (matrix)',
+    'HR/L3':  'HR/L3 – Stakeholder engagement (matrix) ★ NEW',
+    'HR/L4':  'HR/L4 – Prevention actions (matrix) ★ NEW',
+    'HR/L5':  'HR/L5 – Adverse impact & remedy (matrix)',
+    'HR/L6':  'HR/L6 – Gender pay gap',
+    'HR/L7':  'HR/L7 – Work-related accident rate',
+    'E1':     'E1 – Environmental policy (matrix)',
+    'E2':     'E2 – Environmental stakeholder engagement ★ NEW',
+    'E3':     'E3 – Environmental prevention actions ★ NEW',
+    'E4':     'E4 – Environmental adverse impact (matrix)',
+    'E5':     'E5 – GHG Scope 1 & 2 emissions',
+    'E6':     'E6 – GHG Scope 3 emissions',
+    'E7':     'E7 – Validated GHG reduction targets ★ NEW',
+    'E8':     'E8 – Climate adaptation plan',
+    'E9':     'E9 – Fossil fuel phase-out targets',
+    'E10':    'E10 – Climate transition plan ★ NEW',
+    'E11':    'E11 – Material environmental topics',
+    'AC1':    'AC1 – Anti-corruption programme',
+    'AC2':    'AC2 – Conflict of interest policies',
+    'AC3':    'AC3 – Collective action against corruption',
+    'AC4':    'AC4 – Anti-corruption training',
+    'AC5':    'AC5 – Corruption detection mechanisms',
   };
-  const ALL_QIDS = Object.keys(Q_LABELS);
+
+  // Conditional: only shown when a previous answer triggers them
+  const Q_CONDITIONAL = {
+    'G3.1':    'G3.1 – Formal governance structures (if G3 = Yes)',
+    'G4.1':    'G4.1 – Business partner risk ID (if G4 = Yes)',
+    'G5.1':    'G5.1 – Supplier risk identification (if G5 = Yes)',
+    'G6.1':    'G6.1 – Grievance mechanism details (if G6 = Yes)',
+    'HR/L2.1': 'HR/L2.1 – HR/L policy attributes (if HR/L2 = Yes)',
+    'HR/L2.2': 'HR/L2.2 – Freedom of association policy (conditional)',
+    'HR/L2.3': 'HR/L2.3 – Wages policy details (conditional)',
+    'HR/L4.1': 'HR/L4.1 – Prevention actions progress (if HR/L4 = Yes)',
+    'E1.1':    'E1.1 – Environmental policy attributes (if E1 = Yes)',
+    'E3.1':    'E3.1 – Environmental progress assessment (if E3 = Yes)',
+    'E3.1.2':  'E3.1.2 – Target tracking method (conditional)',
+    'E6.1':    'E6.1 – Scope 3 categories (if E6 = measured)',
+    'E7.1':    'E7.1 – Net-zero targets (if E7 = Yes)',
+    'E12':     'E12 – Water withdrawal details (if E11 Water selected)',
+    'E13':     'E13 – Priority water basins (if E11 Water selected)',
+    'E14':     'E14 – Nature action plan (if E11 Nature selected)',
+    'E15':     'E15 – Air pollutant emissions (if E11 Air selected)',
+    'E16':     'E16 – Circular economy practices (if E11 Circular selected)',
+    'AC1.1':   'AC1.1 – Programme attributes (if AC1 = Yes)',
+    'AC1.2':   'AC1.2 – Programme monitoring (if AC1 = Yes) ★ NEW',
+    'AC4.1':   'AC4.1 – Training frequency (if AC4 = Yes) ★ NEW',
+    'AC5.1':   'AC5.1 – Incident response actions (if AC5 = Yes)',
+  };
+
+  // Optional: marked OPTIONAL in the 2026 form
+  const Q_OPTIONAL = {
+    'R3':       'R3 – Reporting scope clarification',
+    'S1':       'S1 – Successful sustainability initiatives',
+    'HR/L4.1.1':'HR/L4.1.1 – Specific HR/L targets text',
+    'E3.1.1':   'E3.1.1 – Environmental targets description',
+    'E17':      'E17 – Additional environmental narrative',
+    'AC6':      'AC6 – Additional anti-corruption narrative',
+  };
+
+  const ALL_QIDS = [
+    ...Object.keys(Q_MANDATORY),
+    ...Object.keys(Q_CONDITIONAL),
+    ...Object.keys(Q_OPTIONAL),
+  ];
+  const Q_LABELS = { ...Q_MANDATORY, ...Q_CONDITIONAL, ...Q_OPTIONAL };
 
   // ── Results ────────────────────────────────────────────────
   function renderResults(data) {
     const filled = data.filled_count || 0;
     const filledSet = new Set(data.filled_qids || []);
-    const pending = ALL_QIDS.filter(q => !filledSet.has(q));
+
+    const mandatoryKeys = Object.keys(Q_MANDATORY);
+    const pendingMandatory = mandatoryKeys.filter(q => !filledSet.has(q));
+    const pendingTotal = ALL_QIDS.filter(q => !filledSet.has(q));
     const total = ALL_QIDS.length;
 
     document.getElementById('stat-filled').textContent = filled;
-    document.getElementById('stat-pending').textContent = pending.length;
+    document.getElementById('stat-pending-mandatory').textContent = pendingMandatory.length;
+    document.getElementById('stat-pending-total').textContent = pendingTotal.length;
     document.getElementById('stat-total').textContent = total;
     document.getElementById('results-subtitle').textContent =
-      `${selectedCompany} — ${filled} of ${total} questions pre-filled from 2025 data.`;
+      `${selectedCompany} — ${filled} of ${total} questions pre-filled from 2025 data. ${pendingMandatory.length} mandatory questions still need manual input.`;
 
     const pendingSection = document.getElementById('pending-section');
     const pendingList = document.getElementById('pending-list');
 
-    if (pending.length === 0) {
+    if (pendingTotal.length === 0) {
       pendingSection.style.display = 'none';
     } else {
       pendingSection.style.display = 'block';
-      pendingList.innerHTML = pending.map(qid =>
-        `<div class="pending-item">
-          <span class="qid-badge">${qid}</span>
-          <span class="q-text">${Q_LABELS[qid] || qid}</span>
-        </div>`
-      ).join('');
+
+      const groups = [
+        { label: 'Mandatory — Always Required', keys: Object.keys(Q_MANDATORY), color: 'var(--red)' },
+        { label: 'Conditional — Required When Triggered', keys: Object.keys(Q_CONDITIONAL), color: 'var(--gold)' },
+        { label: 'Optional', keys: Object.keys(Q_OPTIONAL), color: 'var(--text-muted)' },
+      ];
+
+      pendingList.innerHTML = groups.map(({ label, keys, color }) => {
+        const missing = keys.filter(q => !filledSet.has(q));
+        if (!missing.length) return '';
+        return `<div class="section-group">
+          <div class="section-label" style="color:${color}">${label} (${missing.length})</div>
+          ${missing.map(qid =>
+            `<div class="pending-item">
+              <span class="qid-badge">${qid}</span>
+              <span class="q-text">${Q_LABELS[qid] || qid}</span>
+            </div>`
+          ).join('')}
+        </div>`;
+      }).join('');
 
       document.getElementById('copy-btn').onclick = () => {
-        const text = pending.map(q => `${q}: ${Q_LABELS[q] || q}`).join('\n');
+        const text = pendingTotal.map(q => `${q}: ${Q_LABELS[q] || q}`).join('\n');
         navigator.clipboard.writeText(text).then(() => {
           const btn = document.getElementById('copy-btn');
           btn.textContent = 'Copied!';
