@@ -162,10 +162,20 @@ def fill_sheet(ws, subs):
 
         if response and not choice:
             for i in range(q_row, end_row):
-                cell = all_rows[i][1] if len(all_rows[i]) > 1 else None
-                if cell and cell.value and 'Please provide additional information' in str(cell.value):
-                    cell.value = 'Response: ' + response
-                    success = True
+                for col_idx in (1, 2, 3, 4, 5, 6):  # scan B through G
+                    cell = all_rows[i][col_idx] if len(all_rows[i]) > col_idx else None
+                    if not cell or not cell.value:
+                        continue
+                    v = str(cell.value)
+                    if 'lease provide' in v or '____' in v:
+                        # Preserve the label; replace the underscore placeholder with response
+                        if '____' in v:
+                            cell.value = re.sub(r'_{3,}', response, v, count=1)
+                        else:
+                            cell.value = v.rstrip() + ' ' + response
+                        success = True
+                        break
+                if success:
                     break
 
         elif choice and not subq:
@@ -251,7 +261,9 @@ def fill_sheet(ws, subs):
 
 def get_all_excel_qids(wb):
     results = []
-    sheets = list(SHEET_SECTION_MAP.items()) + [('Success Stories', SUCCESS_STORIES_SHEET)]
+    sheets = (list(SHEET_SECTION_MAP.items())
+              + [('Success Stories', SUCCESS_STORIES_SHEET),
+                 ('CoP Introduction', '2026 CoP Introduction')])
     seen = set()
     for section, sheet_name in sheets:
         if sheet_name in seen:
@@ -331,12 +343,14 @@ def generate():
             if mapped:
                 s['question_id'] = mapped
 
-        # Group by section; S* questions → Success Stories sheet
+        # Group by section; S* → Success Stories, R* → CoP Introduction
         by_section = {}
         for s in unique_subs:
             section = s.get('section', '')
             if re.match(r'^S\d+', s['question_id']):
                 section = '_SuccessStories'
+            elif re.match(r'^R\d+', s['question_id']):
+                section = '_CoPIntro'
             by_section.setdefault(section, []).append(s)
 
         wb = load_workbook(TEMPLATE_PATH)
@@ -345,6 +359,8 @@ def generate():
         for section, section_subs in by_section.items():
             if section == '_SuccessStories':
                 sheet_name = SUCCESS_STORIES_SHEET
+            elif section == '_CoPIntro':
+                sheet_name = '2026 CoP Introduction'
             else:
                 sheet_name = SHEET_SECTION_MAP.get(section)
             if not sheet_name:
