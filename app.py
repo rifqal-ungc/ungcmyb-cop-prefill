@@ -220,11 +220,14 @@ def fill_sheet(ws, subs):
 
                 if target_data_row is not None:
                     data_row = all_rows[target_data_row]
+                    # Pick the longest matching header to avoid "Yes, focused on employees"
+                    # matching before "Yes, focused on employees and the value chain..."
                     target_col = None
+                    best_len = -1
                     for col_idx, header_text in header_cols.items():
-                        if texts_match(choice_n, header_text):
+                        if texts_match(choice_n, header_text) and len(header_text) > best_len:
+                            best_len = len(header_text)
                             target_col = col_idx
-                            break
 
                     if target_col is not None:
                         if len(data_row) > target_col:
