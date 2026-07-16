@@ -213,16 +213,17 @@ def _env_rows(q):
     return [(lab, fld.replace('{q}', q)) for lab, fld in _ENV_ROWS_9]
 
 # Shared 8-row HR/L topic list (used by HR/L2, HR/L4.1, HR/L5).
-# Order follows 2025 data and 2026 form: freedom of assoc → child → forced →
-# non-discrimination → safe/healthy → gender equality → working hours → other.
+# Order matches the 2026 PDF template (confirmed from PDF screenshot):
+# freedom of assoc → child → forced → non-discrimination → safe/healthy →
+# wages → gender equality → [HR/L1.1 topics / other]
 _HRL_ROWS_8 = [
     ('freedom of association and the right to collective bargaining', '{p} Radio Button 1'),
     ('child labour',                                                   '{p} Radio Button 2'),
     ('forced labour',                                                  '{p} Radio Button 3'),
     ('non-discrimination and equality (in respect of employment and occupation)', '{p} Radio Button 4'),
     ('safe and healthy working environment',                            '{p} Radio Button 5'),
-    ("gender equality and women's rights",                             '{p} Radio Button 6'),
-    ('working hours',                                                   '{p} Radio Button 7'),
+    ('wages',                                                          '{p} Radio Button 6'),
+    ("gender equality and women's rights",                             '{p} Radio Button 7'),
     ('other topic(s)',                                                  '{p} Radio Button 8'),
 ]
 
@@ -377,7 +378,9 @@ MATRIX_RADIO = {
     # ── Human Rights & Labour ────────────────────────────────────────────────
     'HR/L2': {
         'options': [
-            'no, and we have no plans to develop any policy/recommendation',
+            # 2025: "...a policy"  2026: "...any policy/recommendation"
+            # Use the shared prefix so both match via startswith.
+            'no, and we have no plans to develop',
             'no, but we plan to within the next two years',
             'yes, included within a broader policy or as a stand-alone policy',
             'not applicable (please provide additional information)',
