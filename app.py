@@ -835,10 +835,10 @@ def _set_radio_fields(writer, radio_values):
         acroform = writer._root_object['/AcroForm'].get_object()
     except Exception:
         return
-    _walk_radio(acroform.get('/Fields', []), radio_values)
+    _walk_radio(acroform.get('/Fields', []), radio_values, '')
 
 
-def _walk_radio(fields, radio_values):
+def _walk_radio(fields, radio_values, path):
     from pypdf.generic import NameObject
     for field_ref in fields:
         try:
@@ -847,21 +847,22 @@ def _walk_radio(fields, radio_values):
             continue
 
         ft   = str(field.get('/FT', ''))
-        name = str(field.get('/T',  ''))
+        t    = str(field.get('/T',  ''))
         ff   = int(field.get('/Ff', 0))
+        # Build full qualified name (matches debug_radio endpoint logic)
+        name = (path + '.' + t if path and t else (path or t)).strip('.')
         is_radio = (ft == '/Btn') and bool(ff & (1 << 15))
 
         if is_radio and name in radio_values:
             target_idx = radio_values[name]
             kids = field.get('/Kids', [])
 
-            # Find the on-state name by scanning ALL kids for any non-Off AP/N key.
-            # This PDF uses /Yes as the on-state for every radio kid; scanning all kids
-            # is more reliable than targeting just kid[target_idx] when AP refs are indirect.
-            on_state = None
-            for kid_ref in kids:
+            # Get the on-state from the TARGET kid specifically.
+            # Each kid's on-state is its own index-based name (/0, /1, /2, …).
+            target_on_state = None
+            if 0 <= target_idx < len(kids):
                 try:
-                    kid_obj = kid_ref.get_object()
+                    kid_obj = kids[target_idx].get_object()
                     ap = kid_obj.get('/AP', {})
                     if hasattr(ap, 'get_object'):
                         ap = ap.get_object()
@@ -870,31 +871,31 @@ def _walk_radio(fields, radio_values):
                         n_dict = n_dict.get_object()
                     on_states = [k for k in n_dict.keys() if k != '/Off']
                     if on_states:
-                        on_state = on_states[0]
-                        break
+                        target_on_state = on_states[0]
                 except Exception:
                     pass
-            if on_state is None:
-                on_state = '/Yes'   # fallback: this template uses /Yes for all radio kids
-            if not on_state.startswith('/'):
-                on_state = f'/{on_state}'
+            if target_on_state is None:
+                target_on_state = f'/{target_idx}'  # fallback: /0, /1, /2 …
+            if not target_on_state.startswith('/'):
+                target_on_state = f'/{target_on_state}'
 
-            # Set parent /V
-            field[NameObject('/V')] = NameObject(on_state)
+            # Set parent /V to the target kid's on-state name
+            field[NameObject('/V')] = NameObject(target_on_state)
 
-            # Set each kid /AS: on for the selected, Off for the rest
+            # Set each kid /AS: the selected kid gets its own on-state, rest get /Off
             for i, kid_ref in enumerate(kids):
                 try:
                     kid_obj = kid_ref.get_object()
-                    kid_obj[NameObject('/AS')] = NameObject(
-                        on_state if i == target_idx else '/Off'
-                    )
+                    if i == target_idx:
+                        kid_obj[NameObject('/AS')] = NameObject(target_on_state)
+                    else:
+                        kid_obj[NameObject('/AS')] = NameObject('/Off')
                 except Exception:
                     pass
 
         # Recurse into field groups (non-radio, non-leaf /Kids)
         elif '/Kids' in field and ft not in ('/Btn', '/Tx', '/Ch'):
-            _walk_radio(field['/Kids'], radio_values)
+            _walk_radio(field['/Kids'], radio_values, name)
 
 
 # ---------------------------------------------------------------------------
@@ -1084,10 +1085,10 @@ def test_fill():
         writer.append(reader)
 
         field_values = {}   # text + checkbox
-        radio_values = {}   # radio field name → kid index
+        radio_values = {}   # radio field name (full qualified) → kid index
         text_counter = [0]
 
-        def walk(fields):
+        def walk(fields, path=''):
             for fref in fields:
                 try:
                     f = fref.get_object()
@@ -1096,20 +1097,21 @@ def test_fill():
                 ft   = str(f.get('/FT', ''))
                 t    = str(f.get('/T',  ''))
                 ff   = int(f.get('/Ff', 0))
+                name = (path + '.' + t if path and t else (path or t)).strip('.')
                 is_radio    = (ft == '/Btn') and bool(ff & (1 << 15))
                 is_checkbox = (ft == '/Btn') and not is_radio
-                if is_radio and t:
-                    radio_values[t] = 0   # select first kid
+                if is_radio and name:
+                    radio_values[name] = 0   # select first kid
                 elif is_checkbox and t:
                     field_values[t] = '/Yes'
                 elif ft == '/Tx' and t:
                     text_counter[0] += 1
                     field_values[t] = f'Answer {text_counter[0]}'
                 if '/Kids' in f:
-                    walk(f['/Kids'])
+                    walk(f['/Kids'], name)
 
         acroform = writer._root_object['/AcroForm'].get_object()
-        walk(acroform.get('/Fields', []))
+        walk(acroform.get('/Fields', []), '')
 
         for page in writer.pages:
             writer.update_page_form_field_values(page, field_values, auto_regenerate=True)
