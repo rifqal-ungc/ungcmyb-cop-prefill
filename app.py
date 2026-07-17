@@ -1095,17 +1095,20 @@ TEXT_FIELDS = {
 # radio_values: {field_name: choice_index_0based}
 # ---------------------------------------------------------------------------
 def _set_radio_fields(writer, radio_values):
+    """Set radio button /V and kid /AS values. Returns {field_name: on_state} dict."""
     from pypdf.generic import NameObject
     if not radio_values:
-        return
+        return {}
     try:
         acroform = writer._root_object['/AcroForm'].get_object()
     except Exception:
-        return
-    _walk_radio(acroform.get('/Fields', []), radio_values, '')
+        return {}
+    on_states = {}
+    _walk_radio(acroform.get('/Fields', []), radio_values, '', on_states)
+    return on_states
 
 
-def _walk_radio(fields, radio_values, path):
+def _walk_radio(fields, radio_values, path, on_states=None):
     from pypdf.generic import NameObject
     for field_ref in fields:
         try:
@@ -1136,9 +1139,9 @@ def _walk_radio(fields, radio_values, path):
                     n_dict = ap.get('/N', {})
                     if hasattr(n_dict, 'get_object'):
                         n_dict = n_dict.get_object()
-                    on_states = [k for k in n_dict.keys() if k != '/Off']
-                    if on_states:
-                        target_on_state = on_states[0]
+                    kid_on_states = [k for k in n_dict.keys() if k != '/Off']
+                    if kid_on_states:
+                        target_on_state = kid_on_states[0]
                 except Exception:
                     pass
             if target_on_state is None:
@@ -1160,9 +1163,14 @@ def _walk_radio(fields, radio_values, path):
                 except Exception:
                     pass
 
+            # Record on-state so caller can pass it to update_page_form_field_values
+            # for appearance-stream regeneration (makes radio buttons visually render)
+            if on_states is not None:
+                on_states[name] = target_on_state
+
         # Recurse into field groups (non-radio, non-leaf /Kids)
         elif '/Kids' in field and ft not in ('/Btn', '/Tx', '/Ch'):
-            _walk_radio(field['/Kids'], radio_values, name)
+            _walk_radio(field['/Kids'], radio_values, name, on_states)
 
 
 # ---------------------------------------------------------------------------
@@ -1337,8 +1345,14 @@ def _fill_pdf(subs):
     for page in writer.pages:
         writer.update_page_form_field_values(page, field_values, auto_regenerate=True)
 
-    # Fill radio buttons via direct AcroForm tree walk
-    _set_radio_fields(writer, radio_values)
+    # Fill radio buttons via direct AcroForm tree walk (/V + kid /AS).
+    # Then pass the resolved on-states back through update_page_form_field_values
+    # so auto_regenerate rebuilds each radio button's appearance stream — without
+    # this second pass the buttons are stored correctly but render as visually blank.
+    radio_on_states = _set_radio_fields(writer, radio_values)
+    if radio_on_states:
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, radio_on_states, auto_regenerate=True)
 
     buf = io.BytesIO()
     writer.write(buf)
