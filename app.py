@@ -1942,5 +1942,82 @@ def debug_dry_run(company_name):
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
+@app.route('/api/test-g4', methods=['GET'])
+def test_g4():
+    """Debug: fill G4 with specific kid indices to test visual column mapping.
+    Row 1 → col 2 (idx 1), Row 2 → col 3 (idx 2), Row 3 → col 5 (idx 4), Row 4 → col 6 (idx 5).
+    If col 6 has no kid, row 4 will show nothing selected."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+        # Force specific kid indices for the 4 G4 rows
+        radio_values = {
+            'G4 Radio Button 1': 1,   # column 2
+            'G4 Radio Button 2': 2,   # column 3
+            'G4 Radio Button 3': 4,   # column 5
+            'G4 Radio Button 4': 5,   # column 6 (no kid if template has only 5)
+        }
+        radio_on_states = _set_radio_fields(writer, radio_values)
+        from pypdf.generic import NameObject as _NameObj, TextStringObject as _TSO
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, radio_on_states, auto_regenerate=True)
+        seen: set = set()
+        for page in writer.pages:
+            page_obj = page.get_object() if hasattr(page, 'get_object') else page
+            annots_ref = page_obj.get('/Annots')
+            if annots_ref is None: continue
+            annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+            if not hasattr(annots, '__iter__'): continue
+            for annot_ref in annots:
+                try: annot = annot_ref.get_object()
+                except Exception: continue
+                if str(annot.get('/Subtype', '')) != '/Widget': continue
+                parent_ref = annot.get('/Parent')
+                if parent_ref is None: continue
+                try: parent = parent_ref.get_object()
+                except Exception: continue
+                if str(parent.get('/FT', '')) != '/Btn': continue
+                try: ff = int(parent.get('/Ff', 0))
+                except Exception: continue
+                if not (ff & (1 << 15)): continue
+                t_raw = parent.get('/T')
+                if t_raw is None: continue
+                try: name = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception: name = str(t_raw).strip('()')
+                if name not in radio_on_states or id(parent) in seen: continue
+                seen.add(id(parent))
+                on_state = radio_on_states[name]
+                if not on_state.startswith('/'): on_state = f'/{on_state}'
+                opt_ref = parent.get('/Opt')
+                if opt_ref is not None:
+                    try:
+                        opt = opt_ref.get_object() if hasattr(opt_ref, 'get_object') else opt_ref
+                        idx = radio_values[name]
+                        opt_list = list(opt)
+                        if 0 <= idx < len(opt_list):
+                            try: export_str = opt_list[idx].get_data().decode('utf-8', errors='replace')
+                            except Exception: export_str = str(opt_list[idx]).strip('()')
+                            parent[_NameObj('/V')] = _TSO(export_str)
+                        else:
+                            parent[_NameObj('/V')] = _NameObj(on_state)
+                    except Exception:
+                        parent[_NameObj('/V')] = _NameObj(on_state)
+                else:
+                    parent[_NameObj('/V')] = _NameObj(on_state)
+        try:
+            acroform = writer._root_object['/AcroForm'].get_object()
+            if '/NeedAppearances' in acroform: del acroform['/NeedAppearances']
+        except Exception: pass
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        return Response(buf.read(), mimetype='application/pdf',
+                        headers={'Content-Disposition': 'attachment; filename="test_g4_columns.pdf"'})
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
