@@ -1413,7 +1413,29 @@ def _fill_pdf(subs):
             on_state = radio_on_states[name]
             if not on_state.startswith('/'):
                 on_state = f'/{on_state}'
-            parent[_NameObj('/V')] = _NameObj(on_state)
+            # When /Opt is present, /V must be the export string from /Opt[target_idx]
+            # so viewers can resolve V→Opt→kid correctly.  Without /Opt, use the
+            # on-state name as a NameObject.
+            opt_ref = parent.get('/Opt')
+            if opt_ref is not None:
+                from pypdf.generic import TextStringObject as _TSO
+                try:
+                    opt = opt_ref.get_object() if hasattr(opt_ref, 'get_object') else opt_ref
+                    target_idx = radio_values[name]
+                    opt_list = list(opt)
+                    if 0 <= target_idx < len(opt_list):
+                        opt_val = opt_list[target_idx]
+                        try:
+                            export_str = opt_val.get_data().decode('utf-8', errors='replace')
+                        except Exception:
+                            export_str = str(opt_val).strip('()')
+                        parent[_NameObj('/V')] = _TSO(export_str)
+                    else:
+                        parent[_NameObj('/V')] = _NameObj(on_state)
+                except Exception:
+                    parent[_NameObj('/V')] = _NameObj(on_state)
+            else:
+                parent[_NameObj('/V')] = _NameObj(on_state)
 
     # Clear /NeedAppearances so viewers honour the stored /AP streams
     try:
