@@ -1142,6 +1142,19 @@ def _set_radio_fields(writer, radio_values):
                 name = t_raw.get_data().decode('utf-8', errors='replace')
             except Exception:
                 name = str(t_raw).strip('()')
+            # For 3-level fields (e.g. G5 → "1 Radio Button N"), prepend grandparent /T
+            # so the full qualified name matches "G5.1 Radio Button N".
+            gp_ref = parent.get('/Parent')
+            if gp_ref is not None and name not in radio_values:
+                try:
+                    gp = gp_ref.get_object()
+                    gp_t_raw = gp.get('/T')
+                    if gp_t_raw is not None:
+                        try: gp_name = gp_t_raw.get_data().decode('utf-8', errors='replace')
+                        except Exception: gp_name = str(gp_t_raw).strip('()')
+                        name = f'{gp_name}.{name}'
+                except Exception:
+                    pass
             if name not in radio_values or name in on_states:
                 continue
 
@@ -1402,6 +1415,18 @@ def _fill_pdf(subs):
                 name = t_raw.get_data().decode('utf-8', errors='replace')
             except Exception:
                 name = str(t_raw).strip('()')
+            # For 3-level fields, prepend grandparent /T to build the full qualified name.
+            gp_ref = parent.get('/Parent')
+            if gp_ref is not None and name not in radio_on_states:
+                try:
+                    gp = gp_ref.get_object()
+                    gp_t_raw = gp.get('/T')
+                    if gp_t_raw is not None:
+                        try: gp_name = gp_t_raw.get_data().decode('utf-8', errors='replace')
+                        except Exception: gp_name = str(gp_t_raw).strip('()')
+                        name = f'{gp_name}.{name}'
+                except Exception:
+                    pass
             if name not in radio_on_states or id(parent) in seen_radio_parents:
                 continue
             seen_radio_parents.add(id(parent))
