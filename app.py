@@ -1408,16 +1408,10 @@ def _fill_pdf(subs):
     # Fill radio buttons via direct AcroForm tree walk (/V + kid /AS).
     _set_radio_fields(writer, radio_values)
 
-    # /NeedAppearances tells every PDF viewer to re-render all field appearances from
-    # the stored /V values when the file is opened.  This is the reliable way to make
-    # radio buttons visually appear selected, since pypdf cannot regenerate the original
-    # graphical radio-button appearance streams itself.
-    try:
-        from pypdf.generic import BooleanObject, NameObject as NO
-        acroform = writer._root_object['/AcroForm'].get_object()
-        acroform[NO('/NeedAppearances')] = BooleanObject(True)
-    except Exception:
-        pass
+    # Do NOT set /NeedAppearances — it tells viewers to discard stored /AP streams
+    # and regenerate their own.  Viewer-generated radio button appearances are blank.
+    # The stored /AP streams are correct (pypdf auto_regenerate handled text/checkboxes;
+    # radio button /AP streams from the template draw the filled circle correctly).
 
     buf = io.BytesIO()
     writer.write(buf)
