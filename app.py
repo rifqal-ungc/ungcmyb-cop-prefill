@@ -102,6 +102,19 @@ _CREMAP = {
     'every 2 years': 'every two years',
     # E6: 2025 Scope 3 measurement answer "Known" maps to 2026 "yes"
     'known': 'yes',
+    # G7: 2025 tracking-maturity options → 2026 approach checkboxes
+    'we do not track the effectiveness of our actions on this topic':
+        'no actions are systematically tracked',
+    'we track this, but informally or through indirect measures':
+        'gathers and assesses feedback from relevant stakeholders',
+    'we track this formally against qualitative goals or milestones':
+        'sets and regularly tracks goals and targets/kpis',
+    'we track this formally against quantitative targets':
+        'conducts monitoring and evaluation',
+    'conducts investigation reviews and leverages learnings to influence both internal and external affairs':
+        'incorporates lessons learned into operational policies and procedures',
+    'conducts investigation reviews and leverages learnings':
+        'incorporates lessons learned into operational policies and procedures',
 }
 
 def _remap(text):
@@ -334,16 +347,7 @@ MATRIX_RADIO = {
         'text_field': 'G6.1 Text Field 8',
     },
     # G7: tracking effectiveness per topic (4 rows × 4 options)
-    'G7': {
-        'options': [
-            'we do not track the effectiveness of our actions on this topic',
-            'we track this, but informally or through indirect measures',
-            'we track this formally against qualitative goals or milestones',
-            'we track this formally against quantitative targets',
-        ],
-        'rows': _gov_rows('G7'),
-        'text_field': None,
-    },
+    # G7 moved to MATRIX_CHECKBOX (2026 uses G7 V2 Check Box 1-20, 4 rows × 5 options)
     # G7.1: conditional on G7 — public reporting on tracking (Yes/No per topic)
     # PDF column order: Yes (kid 0) | No (kid 1)
     'G7.1': {
@@ -792,6 +796,20 @@ _HRL_TOPICS_7 = [
 ]
 
 MATRIX_CHECKBOX = {
+    # G7: tracking/approach per gov topic (4 topics × 5 options = 20 boxes)
+    # 2026 uses "G7 V2 Check Box" (multi-select per row, not radio)
+    'G7': {
+        'rows': ['human rights', 'labour rights/decent work', 'environment', 'anti-corruption'],
+        'options': [
+            'no actions are systematically tracked',
+            'gathers and assesses feedback from relevant stakeholders',
+            'sets and regularly tracks goals and targets/kpis',
+            'conducts monitoring and evaluation',
+            'incorporates lessons learned into operational policies and procedures',
+        ],
+        'prefix': 'G7 V2 Check Box', 'start': 1, 'n_cols': 5,
+        'text_field': 'G7 Text Field 9',
+    },
     # E1.1: policy attributes per env topic (9 topics × 8 options = 72 boxes)
     'E1.1': {
         'rows': _ENV_TOPICS_9,
@@ -905,22 +923,26 @@ MATRIX_CHECKBOX = {
 # RESP is the numeric value (write only when CHOICE == "Known")
 # ---------------------------------------------------------------------------
 BOARD_FIELDS = {
+    # G 10 Text Field 7 = Total (#), 8 = Male (%), 9 = Additional info text area,
+    # 10 = Female (%), 11 = Other (%), 12 = Under 30 (%), 13 = 30-50 (%),
+    # 14 = Above 50 (%), 15 = Minority (%), 16 = Executive (%), 17 = Independent (%)
+    # Non-executive (%) has no text field in the 2026 template.
     'G9':  {'total number of board members (#)': 'G 10 Text Field 7'},
     'G9B': {
         'male (%)':   'G 10 Text Field 8',
-        'female (%)': 'G 10 Text Field 9',
-        'other (%)':  'G 10 Text Field 10',
+        'female (%)': 'G 10 Text Field 10',
+        'other (%)':  'G 10 Text Field 11',
     },
     'G9C': {
-        'under 30 years old (%)':  'G 10 Text Field 11',
-        '30-50 years old (%)':     'G 10 Text Field 12',
-        'above 50 years old (%)':  'G 10 Text Field 13',
+        'under 30 years old (%)':  'G 10 Text Field 12',
+        '30-50 years old (%)':     'G 10 Text Field 13',
+        'above 50 years old (%)':  'G 10 Text Field 14',
     },
     'G9D': {
-        'from minority or vulnerable groups (%)': 'G 10 Text Field 14',
+        'from minority or vulnerable groups (%)': 'G 10 Text Field 15',
     },
     'G9E': {
-        'executive (%)':   'G 10 Text Field 15',
+        'executive (%)':   'G 10 Text Field 16',
         'independent (%)': 'G 10 Text Field 17',
     },
 }
@@ -948,8 +970,8 @@ TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
     'G8': 'G8 Text Field 9',
-    'G10': 'G10 Text Field 10',
-    'G11': 'G11 Text Field 11',
+    'G10': 'G11 Text Field 11',   # 2025 G10 (women in management %) → 2026 G11 field
+    'G11': 'G11 Text Field 12',   # 2025 G11 (C-suite) → G11 additional info
     'E5': 'E5 Text Field 7',
     'E8': 'E8 Text Field 1',
     'E13': 'E13 Text Field 5',
