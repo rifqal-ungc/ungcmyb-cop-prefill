@@ -637,6 +637,19 @@ CHECKBOX_SEQ = {
         'prefix': 'AC6 Check Box', 'start': 1,
         'text_field': 'AC6 Text Field 20',
     },
+    # AC1.2: monitoring mechanisms for anti-corruption programme (6 checkboxes)
+    'AC1.2': {
+        'options': [
+            'yes, through review on an ad hoc basis',
+            'yes, through internal employee self-evaluations',
+            'yes, through automated controls monitoring',
+            'yes, through external independent monitoring',
+            'yes, through other mechanisms',
+            'no, we do not monitor the anti-corruption compliance programme',
+        ],
+        'prefix': 'AC1.2 Check Box', 'start': 1,
+        'text_field': 'AC1.2 Text Field 17',
+    },
 }
 
 # Explicit checkbox maps where numbering is non-sequential or known
@@ -687,6 +700,29 @@ CHECKBOX_MAP = {
         },
         'text_field': 'L2.3 Text Field 15',
     },
+    # E6.1: Scope 3 categories (17 sequential checkboxes in PDF order)
+    'E6.1': {
+        'fields': {
+            'purchased goods and services':                    'E6.1 Check Box 1',
+            'processing of sold products':                     'E6.1 Check Box 2',
+            'capital goods':                                   'E6.1 Check Box 3',
+            'use of sold products':                            'E6.1 Check Box 4',
+            'fuel- and energy-related activities':             'E6.1 Check Box 5',
+            'end-of-life treatment of sold products':          'E6.1 Check Box 6',
+            'upstream transportation and distribution':        'E6.1 Check Box 7',
+            'downstream leased assets':                        'E6.1 Check Box 8',
+            'waste generated in operations':                   'E6.1 Check Box 9',
+            'franchises':                                      'E6.1 Check Box 10',
+            'business travel':                                 'E6.1 Check Box 11',
+            'investments':                                     'E6.1 Check Box 12',
+            'employee commuting':                              'E6.1 Check Box 13',
+            'other - upstream':                                'E6.1 Check Box 14',
+            'upstream leased assets':                          'E6.1 Check Box 15',
+            'other - downstream':                              'E6.1 Check Box 16',
+            'downstream transportation and distribution':      'E6.1 Check Box 17',
+        },
+        'text_field': 'E6.1 Text Field 1',
+    },
     'AC1.1': {
         # /api/fields confirms AC1.1 Check Box 1-6 exist.
         # Note: "applied to own operations" is a prefix of "applied to own operations and suppliers"
@@ -724,6 +760,187 @@ BINARY_SELECT = {
             ('nature and biodiversity', 'E11 Radio Button 3'),
             ('air pollution',           'E11 Radio Button 4'),
         ],
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Checkbox matrix questions — select-all per row, row×col layout.
+# box_number = start + row_idx * n_cols + col_idx
+# ---------------------------------------------------------------------------
+# 2026 env topic order (9 rows): climate, water, oceans, nature, air, waste, circularity, energy, other
+_ENV_TOPICS_9 = [
+    'climate change',
+    'water',
+    'oceans',
+    'nature and biodiversity',
+    'air pollution',
+    'waste management',
+    'circularity',
+    'energy & resource use',
+    'other environmental topic(s)',
+]
+
+# 7 fixed HR/L topics (same order in HR/L2.1, HR/L3, HR/L4)
+_HRL_TOPICS_7 = [
+    'freedom of association and the right to collective bargaining',
+    'child labour',
+    'forced labour',
+    'non-discrimination and equality (in respect of employment and occupation)',
+    'safe and healthy working environment',
+    'wages',
+    "gender equality and women's rights",
+]
+
+MATRIX_CHECKBOX = {
+    # E1.1: policy attributes per env topic (9 topics × 8 options = 72 boxes)
+    'E1.1': {
+        'rows': _ENV_TOPICS_9,
+        'options': [
+            'aligned with international environmental standards',
+            'publicly available',
+            'approved at most senior level of the company',
+            "applied to the company's own operations",
+            "applied to the company's suppliers",
+            "applied to the other stakeholders within the company's value chain",
+            'developed involving environmental expertise from inside and/or outside the company',
+            'other',
+        ],
+        'prefix': 'E1.1 Check Box', 'start': 1, 'n_cols': 8,
+        'text_field': 'E1.1 Text Field 1',
+    },
+    # E2: stakeholder engagement per env topic (9 topics × 7 options = 63 boxes)
+    'E2': {
+        'rows': _ENV_TOPICS_9,
+        'options': [
+            'no engagement on this topic',
+            'to better understand the risks/impacts in question',
+            'to discuss potential ways to prevent/mitigate the risks/impacts in question',
+            'to agree on a way to prevent/mitigate the risks/impacts in question',
+            'to assess progress in preventing/mitigating the risks/impacts in question',
+            'to collaborate in the prevention/mitigation of the risks/impacts in question',
+            'other',
+        ],
+        'prefix': 'E2 Check Box', 'start': 1, 'n_cols': 7,
+        'text_field': 'E2 Text Field 1',
+    },
+    # E3: prevention actions per env topic (9 topics × 7 options = 63 boxes)
+    'E3': {
+        'rows': _ENV_TOPICS_9,
+        'options': [
+            'no action within reporting period',
+            'provided internal training/capacity building for the direct workforce',
+            'built capacity among relevant business relationships',
+            'conducted an audit process and/or corrective action plan',
+            'collective action with peers or other stakeholders to address the issue',
+            'collaborated with governmental or regulatory bodies',
+            'other',
+        ],
+        'prefix': 'E3 Check Box', 'start': 1, 'n_cols': 7,
+        'text_field': 'E3 Text Field 1',
+    },
+    # E3.1.2: progress tracking per env topic (9 topics × 5 options = 45 boxes)
+    # Note: PDF field name has trailing dot: "E3.1.2. Check Box N"
+    'E3.1.2': {
+        'rows': _ENV_TOPICS_9,
+        'options': [
+            'progress is not tracked',
+            'progress is reviewed against goals annually or more frequently',
+            'progress is reported internally to the most senior level',
+            'progress is reported externally',
+            'other',
+        ],
+        'prefix': 'E3.1.2. Check Box', 'start': 1, 'n_cols': 5,
+        'text_field': 'E3.1.2 Text Field 10',
+    },
+    # HR/L2.1: policy attributes per HR/L topic (8 rows × 8 options = 64 boxes)
+    # Row 8 = first HR/L1.1-selected topic (handled by topic lookup below)
+    'HR/L2.1': {
+        'rows': _HRL_TOPICS_7,
+        'options': [
+            'aligned with international human rights/labour standards',
+            'publicly available',
+            'approved at most senior level of the company',
+            "applied to the company's own operations",
+            "applied to the company's suppliers",
+            "applied to the other stakeholders within the company's value chain",
+            'developed involving human rights/labour expertise from inside and/or outside the company',
+            'other',
+        ],
+        'prefix': 'L2.1 Check Box', 'start': 1, 'n_cols': 8,
+        'text_field': 'L2.1 Text Field 14',
+    },
+    # HR/L3: stakeholder engagement per HR/L topic (8 rows × 6 options = 48 boxes)
+    'HR/L3': {
+        'rows': _HRL_TOPICS_7,
+        'options': [
+            'no engagement on this topic',
+            'to better understand the risks/impacts in question',
+            'to discuss potential ways to prevent or mitigate the risks/impacts in question',
+            'to agree on a way to prevent/mitigate the risks/impacts in question',
+            'to assess progress in preventing/mitigating the risks/impacts in question',
+            'to collaborate in the prevention/mitigation of the risks/impacts in question',
+        ],
+        'prefix': 'L3 Check Box', 'start': 1, 'n_cols': 6,
+        'text_field': 'L3 Text Field ',
+    },
+    # HR/L4: prevention actions per HR/L topic (8 rows × 7 options = 56 boxes)
+    'HR/L4': {
+        'rows': _HRL_TOPICS_7,
+        'options': [
+            'no action within reporting period',
+            'provided internal training/capacity building for the direct workforce',
+            'built capacity among relevant business relationships',
+            'conducted an audit process and/or corrective action plan',
+            'collective action with peers or other stakeholders to address the issue',
+            'collaborated with governmental or regulatory bodies',
+            'other',
+        ],
+        'prefix': 'L4 Check Box', 'start': 1, 'n_cols': 7,
+        'text_field': 'L4 Text Field',
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Board composition (G9) — maps (qid, subq) → PDF text field
+# RESP is the numeric value (write only when CHOICE == "Known")
+# ---------------------------------------------------------------------------
+BOARD_FIELDS = {
+    'G9':  {'total number of board members (#)': 'G 10 Text Field 7'},
+    'G9B': {
+        'male (%)':   'G 10 Text Field 8',
+        'female (%)': 'G 10 Text Field 9',
+        'other (%)':  'G 10 Text Field 10',
+    },
+    'G9C': {
+        'under 30 years old (%)':  'G 10 Text Field 11',
+        '30-50 years old (%)':     'G 10 Text Field 12',
+        'above 50 years old (%)':  'G 10 Text Field 13',
+    },
+    'G9D': {
+        'from minority or vulnerable groups (%)': 'G 10 Text Field 14',
+    },
+    'G9E': {
+        'executive (%)':   'G 10 Text Field 15',
+        'independent (%)': 'G 10 Text Field 17',
+    },
+}
+
+# ---------------------------------------------------------------------------
+# GHG emissions (E5.1) — maps subq → (text_field, no_measure_radio)
+# Write RESP to text_field when CHOICE == "Known"; set radio when "did not measure"
+# ---------------------------------------------------------------------------
+GHG_SCOPE_FIELDS = {
+    'scope 1 emissions': {
+        'text_field': 'E5 Text Field 11',
+        'no_measure_radio': 'E5.1 Radio Button 1',
+    },
+    'scope 2 (market-based) emissions': {
+        'text_field': 'E5 Text Field 12',
+        'no_measure_radio': 'E5.1 Radio Button 2',
+    },
+    'scope 2 (location-based) emissions': {
+        'text_field': 'E5 Text Field 17',
+        'no_measure_radio': 'E5.1 Radio Button 3',
     },
 }
 
@@ -814,7 +1031,8 @@ TEXT_FIELDS = {
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
     'G6.1AA':  'G6.1 Text Field 8',    # additional additional-info for G6.1
     'HR/L1A':  'HR/L1.1 Text Field 001',  # HR/L1 additional topic info (same text field)
-    'E5.1AA':  'E5.1 Text Field 7',    # E5.1 additional info (field name may vary — verify)
+    'E5.1A':   'E5 Text Field 7',       # E5.1 additional info → E5 general text field
+    'E5.1AA':  'E5 Text Field 7',       # E5.1 extra additional info (same field)
 }
 
 # ---------------------------------------------------------------------------
@@ -975,6 +1193,20 @@ def _fill_pdf(subs):
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
+        # ── MATRIX CHECKBOX (select-all per row, row×col layout) ─────────────
+        elif qid in MATRIX_CHECKBOX:
+            q = MATRIX_CHECKBOX[qid]
+            row_idx = next(
+                (i for i, r in enumerate(q['rows']) if _match(subq, r)), -1
+            )
+            col_idx = _best_option(choice, q['options'])
+            if row_idx >= 0 and col_idx >= 0:
+                box_num = q['start'] + row_idx * q['n_cols'] + col_idx
+                field_values[f"{q['prefix']} {box_num}"] = '/Yes'
+                filled_qids.add(qid)
+            if response and q.get('text_field'):
+                field_values[q['text_field']] = response
+
         # ── BINARY SELECT (Yes/No radio where choice IS the row topic) ────────
         elif qid in BINARY_SELECT:
             q = BINARY_SELECT[qid]
@@ -991,6 +1223,27 @@ def _fill_pdf(subs):
                 existing = field_values.get(fname, '')
                 field_values[fname] = (existing + '; ' + val) if existing else val
                 filled_qids.add(qid)
+
+        # ── BOARD COMPOSITION (G9/G9B/G9C/G9D/G9E → G 10 Text Field N) ─────
+        elif qid in BOARD_FIELDS:
+            subq_fields = BOARD_FIELDS[qid]
+            subq_norm = _norm(s['subquestion'])
+            fname = subq_fields.get(subq_norm)
+            if fname and _match(choice, 'known') and response:
+                field_values[fname] = str(response)
+                filled_qids.add(qid)
+
+        # ── GHG SCOPE EMISSIONS (E5.1) ────────────────────────────────────
+        elif qid == 'E5.1':
+            scope_norm = _norm(s['subquestion'])
+            sf = GHG_SCOPE_FIELDS.get(scope_norm)
+            if sf:
+                if _match(choice, 'we did not measure'):
+                    radio_values[sf['no_measure_radio']] = 0
+                    filled_qids.add(qid)
+                elif _match(choice, 'known') and response:
+                    field_values[sf['text_field']] = str(response)
+                    filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
         elif qid in TEXT_FIELDS:
