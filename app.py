@@ -1068,6 +1068,66 @@ def generate():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/test-fill', methods=['GET'])
+def test_fill():
+    """Debug: fill every field in the PDF — checkboxes checked, radios set to kid 0,
+    text fields filled with 'Answer N' (sequential). Download the result to verify
+    that every field type is writable."""
+    try:
+        from pypdf.generic import NameObject
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+
+        field_values = {}   # text + checkbox
+        radio_values = {}   # radio field name → kid index
+        text_counter = [0]
+
+        def walk(fields):
+            for fref in fields:
+                try:
+                    f = fref.get_object()
+                except Exception:
+                    continue
+                ft   = str(f.get('/FT', ''))
+                t    = str(f.get('/T',  ''))
+                ff   = int(f.get('/Ff', 0))
+                is_radio    = (ft == '/Btn') and bool(ff & (1 << 15))
+                is_checkbox = (ft == '/Btn') and not is_radio
+                if is_radio and t:
+                    radio_values[t] = 0   # select first kid
+                elif is_checkbox and t:
+                    field_values[t] = '/Yes'
+                elif ft == '/Tx' and t:
+                    text_counter[0] += 1
+                    field_values[t] = f'Answer {text_counter[0]}'
+                if '/Kids' in f:
+                    walk(f['/Kids'])
+
+        acroform = writer._root_object['/AcroForm'].get_object()
+        walk(acroform.get('/Fields', []))
+
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, field_values, auto_regenerate=True)
+        _set_radio_fields(writer, radio_values)
+
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        return Response(
+            buf.read(),
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': 'attachment; filename="test_fill_all_fields.pdf"',
+                'X-Text-Fields': str(text_counter[0]),
+                'X-Radio-Fields': str(len(radio_values)),
+                'X-Checkbox-Fields': str(sum(1 for v in field_values.values() if v == '/Yes')),
+            }
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/fields', methods=['GET'])
 def dump_fields():
     """Debug: dump all PDF form field names and their current values."""
