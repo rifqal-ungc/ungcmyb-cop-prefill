@@ -855,11 +855,13 @@ def _walk_radio(fields, radio_values):
             target_idx = radio_values[name]
             kids = field.get('/Kids', [])
 
-            # Find the on-state name for the target kid from its /AP/N keys
+            # Find the on-state name by scanning ALL kids for any non-Off AP/N key.
+            # This PDF uses /Yes as the on-state for every radio kid; scanning all kids
+            # is more reliable than targeting just kid[target_idx] when AP refs are indirect.
             on_state = None
-            if target_idx < len(kids):
+            for kid_ref in kids:
                 try:
-                    kid_obj = kids[target_idx].get_object()
+                    kid_obj = kid_ref.get_object()
                     ap = kid_obj.get('/AP', {})
                     if hasattr(ap, 'get_object'):
                         ap = ap.get_object()
@@ -867,11 +869,13 @@ def _walk_radio(fields, radio_values):
                     if hasattr(n_dict, 'get_object'):
                         n_dict = n_dict.get_object()
                     on_states = [k for k in n_dict.keys() if k != '/Off']
-                    on_state = on_states[0] if on_states else f'/{target_idx}'
+                    if on_states:
+                        on_state = on_states[0]
+                        break
                 except Exception:
-                    on_state = f'/{target_idx}'
+                    pass
             if on_state is None:
-                on_state = f'/{target_idx}'
+                on_state = '/Yes'   # fallback: this template uses /Yes for all radio kids
             if not on_state.startswith('/'):
                 on_state = f'/{on_state}'
 
