@@ -1087,90 +1087,131 @@ TEXT_FIELDS = {
 # ---------------------------------------------------------------------------
 # Radio button filler
 # ---------------------------------------------------------------------------
-# pypdf's update_page_form_field_values sets the parent field /V but does NOT
-# update each child widget's /AS (appearance state), so radio buttons remain
-# visually blank even though the value is stored.  This function walks the
-# AcroForm field tree directly and sets both parent /V and all kids' /AS.
+# Sets radio button /V (on parent) and /AS (on each kid widget) by walking
+# page annotations — the same writer-space objects that update_page_form_field_values
+# uses, ensuring modifications persist through serialization.
 #
 # radio_values: {field_name: choice_index_0based}
 # ---------------------------------------------------------------------------
 def _set_radio_fields(writer, radio_values):
-    """Set radio button /V and kid /AS values. Returns {field_name: on_state} dict."""
+    """Set radio button /V and kid /AS by walking page widget annotations."""
     from pypdf.generic import NameObject
     if not radio_values:
         return {}
-    try:
-        acroform = writer._root_object['/AcroForm'].get_object()
-    except Exception:
-        return {}
-    on_states = {}
-    _walk_radio(acroform.get('/Fields', []), radio_values, '', on_states)
-    return on_states
 
+    # For each radio group we need: parent object, list of kid objects, target index.
+    # Collect by parent /T name; stop once all groups are accounted for.
+    groups = {}   # name → {'parent': obj, 'kids': [obj,...], 'target_idx': int}
 
-def _walk_radio(fields, radio_values, path, on_states=None):
-    from pypdf.generic import NameObject
-    for field_ref in fields:
-        try:
-            field = field_ref.get_object()
-        except Exception:
+    for page in writer.pages:
+        page_obj = page.get_object() if hasattr(page, 'get_object') else page
+        annots_ref = page_obj.get('/Annots')
+        if annots_ref is None:
+            continue
+        annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+        if not hasattr(annots, '__iter__'):
             continue
 
-        ft   = str(field.get('/FT', ''))
-        t    = str(field.get('/T',  ''))
-        ff   = int(field.get('/Ff', 0))
-        # Build full qualified name (matches debug_radio endpoint logic)
-        name = (path + '.' + t if path and t else (path or t)).strip('.')
-        is_radio = (ft == '/Btn') and bool(ff & (1 << 15))
+        for annot_ref in annots:
+            try:
+                annot = annot_ref.get_object()
+            except Exception:
+                continue
+            if str(annot.get('/Subtype', '')) != '/Widget':
+                continue
 
-        if is_radio and name in radio_values:
-            target_idx = radio_values[name]
-            kids = field.get('/Kids', [])
+            # Walk up to the radio group parent (skip anonymous kids)
+            parent_ref = annot.get('/Parent')
+            if parent_ref is None:
+                continue
+            try:
+                parent = parent_ref.get_object()
+            except Exception:
+                continue
 
-            # Get the on-state from the TARGET kid specifically.
-            # Each kid's on-state is its own index-based name (/0, /1, /2, …).
-            target_on_state = None
-            if 0 <= target_idx < len(kids):
-                try:
-                    kid_obj = kids[target_idx].get_object()
-                    ap = kid_obj.get('/AP', {})
-                    if hasattr(ap, 'get_object'):
-                        ap = ap.get_object()
-                    n_dict = ap.get('/N', {})
-                    if hasattr(n_dict, 'get_object'):
-                        n_dict = n_dict.get_object()
-                    kid_on_states = [k for k in n_dict.keys() if k != '/Off']
-                    if kid_on_states:
-                        target_on_state = kid_on_states[0]
-                except Exception:
-                    pass
-            if target_on_state is None:
-                target_on_state = f'/{target_idx}'  # fallback: /0, /1, /2 …
-            if not target_on_state.startswith('/'):
-                target_on_state = f'/{target_on_state}'
+            ft = str(parent.get('/FT', ''))
+            if ft != '/Btn':
+                continue
+            try:
+                ff = int(parent.get('/Ff', 0))
+            except Exception:
+                continue
+            if not (ff & (1 << 15)):   # bit 15 = radio button
+                continue
 
-            # Set parent /V to the target kid's on-state name
-            field[NameObject('/V')] = NameObject(target_on_state)
+            t_raw = parent.get('/T')
+            if t_raw is None:
+                continue
+            try:
+                name = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception:
+                name = str(t_raw).strip('()')
+            if name not in radio_values:
+                continue
 
-            # Set each kid /AS: the selected kid gets its own on-state, rest get /Off
-            for i, kid_ref in enumerate(kids):
-                try:
-                    kid_obj = kid_ref.get_object()
-                    if i == target_idx:
-                        kid_obj[NameObject('/AS')] = NameObject(target_on_state)
-                    else:
-                        kid_obj[NameObject('/AS')] = NameObject('/Off')
-                except Exception:
-                    pass
+            if name not in groups:
+                kids_ref = parent.get('/Kids', [])
+                kids_list = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                kid_objs = []
+                for kr in kids_list:
+                    try:
+                        kid_objs.append(kr.get_object())
+                    except Exception:
+                        kid_objs.append(None)
+                groups[name] = {
+                    'parent': parent,
+                    'kids': kid_objs,
+                    'target_idx': radio_values[name],
+                }
 
-            # Record on-state so caller can pass it to update_page_form_field_values
-            # for appearance-stream regeneration (makes radio buttons visually render)
-            if on_states is not None:
-                on_states[name] = target_on_state
+        if len(groups) == len(radio_values):
+            break   # found all groups, no need to scan more pages
 
-        # Recurse into field groups (non-radio, non-leaf /Kids)
-        elif '/Kids' in field and ft not in ('/Btn', '/Tx', '/Ch'):
-            _walk_radio(field['/Kids'], radio_values, name, on_states)
+    on_states = {}
+    for name, g in groups.items():
+        parent = g['parent']
+        kids   = g['kids']
+        target_idx = g['target_idx']
+
+        # Determine the on-state name for the target kid
+        target_on_state = None
+        if 0 <= target_idx < len(kids) and kids[target_idx] is not None:
+            try:
+                kid = kids[target_idx]
+                ap = kid.get('/AP', {})
+                if hasattr(ap, 'get_object'):
+                    ap = ap.get_object()
+                n_dict = ap.get('/N', {})
+                if hasattr(n_dict, 'get_object'):
+                    n_dict = n_dict.get_object()
+                ks = [k for k in n_dict.keys() if k != '/Off']
+                if ks:
+                    target_on_state = ks[0]
+            except Exception:
+                pass
+        if target_on_state is None:
+            target_on_state = f'/{target_idx}'
+        if not target_on_state.startswith('/'):
+            target_on_state = f'/{target_on_state}'
+
+        # Set parent /V as a NameObject so PDF viewers recognise the selection
+        parent[NameObject('/V')] = NameObject(target_on_state)
+
+        # Set each kid /AS
+        for i, kid in enumerate(kids):
+            if kid is None:
+                continue
+            try:
+                if i == target_idx:
+                    kid[NameObject('/AS')] = NameObject(target_on_state)
+                else:
+                    kid[NameObject('/AS')] = NameObject('/Off')
+            except Exception:
+                pass
+
+        on_states[name] = target_on_state
+
+    return on_states
 
 
 # ---------------------------------------------------------------------------
