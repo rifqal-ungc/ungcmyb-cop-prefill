@@ -302,6 +302,14 @@ MATRIX_RADIO = {
         'rows': _gov_rows('G5'),   # G5 Radio Button fields are physically in the G4 visual section
         'text_field': 'G5 Text Field 7',
     },
+    # G4.1: conditional on G4 — has company identified high-risk business partners (Yes/No per topic)
+    # G5.1 Radio Button fields are physically in the G4.1 visual section
+    # PDF column order: Yes (kid 0) | No (kid 1)
+    'G4.1': {
+        'options': ['yes', 'no'],
+        'rows': _gov_rows('G5.1'),
+        'text_field': 'G5.1 Text Field 7',
+    },
     'G5': {
         # PDF confirmed 6 kids
         'options': [
@@ -994,6 +1002,7 @@ TEXT_FIELDS = {
     'G3A':  'G3 Text Field 5',
     'G3.1A': 'G4 Text Field 6',   # G3.1 visual additional-info is in the G4-named text field
     'G4A':  'G5 Text Field 7',
+    'G4.1A': 'G5.1 Text Field 7',
     'G5A':  'G6 Text Field 8',
     'G6A':  'G7 Text Field 9',
     'G7A':  'G8 Text Field 9',
