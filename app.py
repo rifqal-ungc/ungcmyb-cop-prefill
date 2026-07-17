@@ -1539,6 +1539,97 @@ def test_fill():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/test-radio', methods=['GET'])
+def test_radio():
+    """Debug: fill ONLY radio buttons — selects kid 0 for every group.
+    Uses update_page_form_field_values+auto_regenerate (same path as checkboxes)
+    to see if pypdf can generate proper radio button appearances."""
+    try:
+        from pypdf.generic import NameObject
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+
+        # Walk page annotations to find every radio button group and
+        # determine each group's kid-0 on-state name.
+        radio_field_values = {}  # {field_name: on_state_str}  e.g. {'Radio Button R1': '/0'}
+
+        for page in writer.pages:
+            page_obj = page.get_object() if hasattr(page, 'get_object') else page
+            annots_ref = page_obj.get('/Annots')
+            if annots_ref is None:
+                continue
+            annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+            for annot_ref in (annots if hasattr(annots, '__iter__') else []):
+                try:
+                    annot = annot_ref.get_object()
+                except Exception:
+                    continue
+                if str(annot.get('/Subtype', '')) != '/Widget':
+                    continue
+                parent_ref = annot.get('/Parent')
+                if parent_ref is None:
+                    continue
+                try:
+                    parent = parent_ref.get_object()
+                except Exception:
+                    continue
+                if str(parent.get('/FT', '')) != '/Btn':
+                    continue
+                try:
+                    ff = int(parent.get('/Ff', 0))
+                except Exception:
+                    continue
+                if not (ff & (1 << 15)):
+                    continue
+                t_raw = parent.get('/T')
+                if t_raw is None:
+                    continue
+                try:
+                    name = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception:
+                    name = str(t_raw).strip('()')
+                if name in radio_field_values:
+                    continue
+                # Get kid-0's on-state name
+                kids_ref = parent.get('/Kids', [])
+                kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                on_state = '/0'
+                try:
+                    kid0 = list(kids)[0].get_object()
+                    ap = kid0.get('/AP', {})
+                    if hasattr(ap, 'get_object'):
+                        ap = ap.get_object()
+                    n = ap.get('/N', {})
+                    if hasattr(n, 'get_object'):
+                        n = n.get_object()
+                    ks = [k for k in n.keys() if k != '/Off']
+                    if ks:
+                        on_state = ks[0]
+                except Exception:
+                    pass
+                radio_field_values[name] = on_state
+
+        # Fill via update_page_form_field_values (same path as checkboxes)
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, radio_field_values, auto_regenerate=True)
+
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        return Response(
+            buf.read(),
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': 'attachment; filename="test_radio_only.pdf"',
+                'X-Radio-Groups': str(len(radio_field_values)),
+                'X-Fields': str(list(radio_field_values.keys())[:5]),
+            }
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/fields', methods=['GET'])
 def dump_fields():
     """Debug: dump all PDF form field names and their current values."""
