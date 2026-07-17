@@ -277,8 +277,8 @@ MATRIX_RADIO = {
         'rows': _gov_rows('G3'),
         'text_field': 'G3 Text Field 5',
     },
-    # G3.1 reuses G3's PDF fields (confirmed: no G3.1 fields in radio debug).
-    # Processing G3.1 last lets it overwrite G3 with the governance structure answer.
+    # Template field naming: PDF radio buttons are named one number ahead of their visual question
+    # (G4 Radio Button = G3.1 visual, G5 Radio Button = G4 visual, etc.) — confirmed via pdftotext.
     'G3.1': {
         'options': [
             'no formal structure',
@@ -287,8 +287,8 @@ MATRIX_RADIO = {
             'yes, with direct influence on some outcomes',
             'yes, with direct influence at the highest level of the company',
         ],
-        'rows': _gov_rows('G3'),   # same field names as G3
-        'text_field': 'G3 Text Field 5',
+        'rows': _gov_rows('G4'),   # G4 Radio Button fields are physically in the G3.1 visual section
+        'text_field': 'G4 Text Field 6',
     },
     'G4': {
         # PDF confirmed 5 kids (not 6) — removed "and external stakeholders" option
@@ -299,8 +299,8 @@ MATRIX_RADIO = {
             'yes, engaging employees across the company',
             'yes, engaging employees and business partners',
         ],
-        'rows': _gov_rows('G4'),
-        'text_field': 'G4 Text Field 6',
+        'rows': _gov_rows('G5'),   # G5 Radio Button fields are physically in the G4 visual section
+        'text_field': 'G5 Text Field 7',
     },
     'G5': {
         # PDF confirmed 6 kids
@@ -312,8 +312,8 @@ MATRIX_RADIO = {
             'yes, related to our own operations and the value chain',
             'choose not to disclose',
         ],
-        'rows': _gov_rows('G5'),
-        'text_field': 'G5 Text Field 7',
+        'rows': _gov_rows('G6'),   # G6 Radio Button fields are physically in the G5 visual section
+        'text_field': 'G6 Text Field 8',
     },
     'G6': {
         # PDF confirmed 5 kids (was 4) — added extended formal process option
@@ -324,46 +324,32 @@ MATRIX_RADIO = {
             'yes, we have a formal process',
             'yes, we have a formal process accessible to employees and external stakeholders or the value chain',
         ],
-        'rows': _gov_rows('G6'),
-        'text_field': 'G6 Text Field 8',
+        'rows': _gov_rows('G7'),   # G7 Radio Button fields are physically in the G6 visual section
+        'text_field': 'G7 Text Field 9',
     },
     # G5.1: conditional on G5 — which topics are included in due diligence (Yes/No per topic)
     # PDF column order: Yes (kid 0) | No (kid 1)
     'G5.1': {
         'options': ['yes', 'no'],
-        'rows': _gov_rows('G5.1'),
-        'text_field': 'G5.1 Text Field 7',
+        'rows': _gov_rows('G6.1'),   # G6.1 Radio Button fields are physically in the G5.1 visual section
+        'text_field': 'G6.1 Text Field 8',
     },
     # G6.1: conditional on G6 — grievance mechanism attributes (Yes/No per attribute).
-    # Row labels use the 2025 subquestion prefix so _match() hits on startswith.
-    # /api/fields confirms only 4 radio buttons (1-4) — no Button 5.
+    # 2026 PDF has 6 rows (confirmed from pdftotext page 13).
     # PDF column order: Yes (kid 0) | No (kid 1)
     'G6.1': {
         'options': ['yes', 'no'],
         'rows': [
-            ('is the process communicated to all employees',             'G6.1 Radio Button 1'),
-            ('is the process available to non-employees',                'G6.1 Radio Button 2'),
-            ('is the process confidential',                              'G6.1 Radio Button 3'),
-            ('are there processes in place to avoid retaliation',        'G6.1 Radio Button 4'),
-        ],
-        'text_field': 'G6.1 Text Field 8',
-    },
-    # G7: tracking effectiveness per topic (4 rows × 4 options)
-    # G7 moved to MATRIX_CHECKBOX (2026 uses G7 V2 Check Box 1-20, 4 rows × 5 options)
-    # G7.1: conditional on G7 — public reporting on tracking (Yes/No per topic)
-    # PDF column order: Yes (kid 0) | No (kid 1)
-    'G7.1': {
-        'options': ['yes', 'no'],
-        'rows': [
-            ('human rights',              'G7.1 Radio Button 1'),
-            ('labour rights/decent work', 'G7.1 Radio Button 2'),
-            ('environment',               'G7.1 Radio Button 3'),
-            ('anti-corruption',           'G7.1 Radio Button 4'),
-            ('gender equality',           'G7.1 Radio Button 5'),
-            ('supply chain sustainability', 'G7.1 Radio Button 6'),
+            ('is the process communicated to all employees',             'G7.1 Radio Button 1'),
+            ('is the process available to non-employees',                'G7.1 Radio Button 2'),
+            ('is the process confidential',                              'G7.1 Radio Button 3'),
+            ('are there processes in place to avoid retaliation',        'G7.1 Radio Button 4'),
+            ('can concerns be raised about suppliers',                   'G7.1 Radio Button 5'),
+            ('other',                                                    'G7.1 Radio Button 6'),
         ],
         'text_field': 'G7.1 Text Field 9',
     },
+    # G7: tracking effectiveness per topic — moved to MATRIX_CHECKBOX (G7 V2 Check Box 1-20)
     # ── Environment ─────────────────────────────────────────────────────────
     'E1': {
         'options': [
@@ -829,7 +815,7 @@ MATRIX_CHECKBOX = {
             'incorporates lessons learned into operational policies and procedures',
         ],
         'prefix': 'G7 V2 Check Box', 'n_rows': 4, 'n_total': 20,
-        'text_field': 'G7 Text Field 9',
+        'text_field': 'G8 Text Field 9',   # G7 visual additional-info is in the G8-named text field
     },
     # E1.1: policy attributes per env topic (9 topics × 8 options = 72 boxes)
     # special_row=5 (waste management) → boxes 65-72 right-to-left
@@ -996,7 +982,7 @@ GHG_SCOPE_FIELDS = {
 TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
-    'G8': 'G8 Text Field 9',
+    'G8': 'G9 Text Field 9',   # G8 visual additional-info is in the G9-named text field
     'G10': 'G11 Text Field 11',   # 2025 G10 (women in management %) → 2026 G11 field
     'G11': 'G11 Text Field 12',   # 2025 G11 (C-suite) → G11 additional info
     'E5': 'E5 Text Field 7',
@@ -1006,12 +992,12 @@ TEXT_FIELDS = {
     # "A" suffix variants — same text field, different question_id in Excel
     'G2A':  'G2 Text Field 4',
     'G3A':  'G3 Text Field 5',
-    'G3.1A': 'G3 Text Field 5',   # G3.1 reuses G3 fields; G3.1A overwrites G3A (G3.1 is more specific)
-    'G7A':  'G7 Text Field 9',
-    'G4A':  'G4 Text Field 6',
-    'G5A':  'G5 Text Field 7',
-    'G6A':  'G6 Text Field 8',
-    'G8A':  'G8 Text Field 9',
+    'G3.1A': 'G4 Text Field 6',   # G3.1 visual additional-info is in the G4-named text field
+    'G4A':  'G5 Text Field 7',
+    'G5A':  'G6 Text Field 8',
+    'G6A':  'G7 Text Field 9',
+    'G7A':  'G8 Text Field 9',
+    'G8A':  'G9 Text Field 9',
     'G12A': 'G12 V2 Radio Button ',   # unlikely but safe
     'G13A': 'G13 Text Field 12',
     'G14A': 'G14 Text Field 12',
@@ -1037,9 +1023,9 @@ TEXT_FIELDS = {
     'S2A':  'S2 Text Field 4',
     'G1A':  'G1 Text Field 5',
     # Confirmed from /api/fields:
-    'G5.1A': 'G5.1 Text Field 7',
-    'G6.1A': 'G6.1 Text Field 8',
-    'G7.1A': 'G7.1 Text Field 9',
+    'G5.1A': 'G6.1 Text Field 8',   # G5.1 visual text field is named G6.1
+    'G6.1A': 'G7.1 Text Field 9',   # G6.1 visual text field is named G7.1
+    'G7.1A': 'G7.1 Text Field 9',   # G7.1 has no dedicated visual section; share G6.1's text field
     # HR/L8: text description of living wage commitment
     'HR/L8': 'L8 Text Field ',
     'L8':    'L8 Text Field ',
@@ -1078,7 +1064,7 @@ TEXT_FIELDS = {
     # Additional IDs seen in some submissions
     'E1AAA':   'E1 Text Field 1',       # extra additional-info variant for E1
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
-    'G6.1AA':  'G6.1 Text Field 8',    # additional additional-info for G6.1
+    'G6.1AA':  'G7.1 Text Field 9',    # additional additional-info for G6.1
     'HR/L1A':  'HR/L1.1 Text Field 001',  # HR/L1 additional topic info (same text field)
     'E5.1A':   'E5 Text Field 7',       # E5.1 additional info → E5 general text field
     'E5.1AA':  'E5 Text Field 7',       # E5.1 extra additional info (same field)
@@ -1945,18 +1931,18 @@ def debug_dry_run(company_name):
 @app.route('/api/test-g4', methods=['GET'])
 def test_g4():
     """Debug: fill G4 with specific kid indices to test visual column mapping.
-    Row 1 → col 2 (idx 1), Row 2 → col 3 (idx 2), Row 3 → col 5 (idx 4), Row 4 → col 6 (idx 5).
-    If col 6 has no kid, row 4 will show nothing selected."""
+    G4 visual section uses G5 Radio Button fields (template naming is off by one from G3.1 onwards).
+    Row 1 → col 2 (idx 1), Row 2 → col 3 (idx 2), Row 3 → col 5 (idx 4), Row 4 → col 6 (idx 5)."""
     try:
         reader = PdfReader(PDF_PATH)
         writer = PdfWriter()
         writer.append(reader)
-        # Force specific kid indices for the 4 G4 rows
+        # Force specific kid indices for the 4 G4 rows (G5 Radio Button = G4 visual section)
         radio_values = {
-            'G4 Radio Button 1': 1,   # column 2
-            'G4 Radio Button 2': 2,   # column 3
-            'G4 Radio Button 3': 4,   # column 5
-            'G4 Radio Button 4': 5,   # column 6 (no kid if template has only 5)
+            'G5 Radio Button 1': 1,   # column 2
+            'G5 Radio Button 2': 2,   # column 3
+            'G5 Radio Button 3': 4,   # column 5
+            'G5 Radio Button 4': 5,   # column 6 (no kid if template has only 5)
         }
         radio_on_states = _set_radio_fields(writer, radio_values)
         from pypdf.generic import NameObject as _NameObj, TextStringObject as _TSO
