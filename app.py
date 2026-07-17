@@ -1173,7 +1173,7 @@ def _set_radio_fields(writer, radio_values):
         kids   = g['kids']
         target_idx = g['target_idx']
 
-        # Determine the on-state name for the target kid
+        # Determine the on-state name for the target kid (for /AS)
         target_on_state = None
         if 0 <= target_idx < len(kids) and kids[target_idx] is not None:
             try:
@@ -1194,8 +1194,27 @@ def _set_radio_fields(writer, radio_values):
         if not target_on_state.startswith('/'):
             target_on_state = f'/{target_on_state}'
 
-        # Set parent /V as a NameObject so PDF viewers recognise the selection
-        parent[NameObject('/V')] = NameObject(target_on_state)
+        # Set parent /V.  When /Opt is present, PDF viewers that match /V against
+        # the /Opt export-value array need the /Opt string, not the on-state name.
+        # Without /Opt, use the on-state NameObject (e.g. /0, /1).
+        v_value = NameObject(target_on_state)   # default: on-state name
+        opt_ref = parent.get('/Opt')
+        if opt_ref is not None:
+            try:
+                opt = opt_ref.get_object() if hasattr(opt_ref, 'get_object') else opt_ref
+                opt_arr = list(opt) if hasattr(opt, '__iter__') else []
+                if 0 <= target_idx < len(opt_arr):
+                    ev = opt_arr[target_idx]
+                    if hasattr(ev, 'get_object'):
+                        ev = ev.get_object()
+                    # /Opt entries may be strings or 2-element arrays [export, display]
+                    if hasattr(ev, '__iter__') and not isinstance(ev, (str, bytes)):
+                        ev_list = list(ev)
+                        ev = ev_list[0].get_object() if ev_list and hasattr(ev_list[0], 'get_object') else ev_list[0] if ev_list else ev
+                    v_value = ev   # PDFString export value
+            except Exception:
+                pass
+        parent[NameObject('/V')] = v_value
 
         # Set each kid /AS
         for i, kid in enumerate(kids):
