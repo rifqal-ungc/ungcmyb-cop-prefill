@@ -1087,21 +1087,25 @@ TEXT_FIELDS = {
 # ---------------------------------------------------------------------------
 # Radio button filler
 # ---------------------------------------------------------------------------
-# Sets radio button /V (on parent) and /AS (on each kid widget) by walking
-# page annotations — the same writer-space objects that update_page_form_field_values
-# uses, ensuring modifications persist through serialization.
+# Converts {field_name: choice_index} → {field_name: on_state_str} by walking
+# page widget annotations to find each group's kid on-state names.
+# The returned dict is passed to update_page_form_field_values so the same
+# auto_regenerate path that works for checkboxes also handles radio buttons.
 #
 # radio_values: {field_name: choice_index_0based}
 # ---------------------------------------------------------------------------
 def _set_radio_fields(writer, radio_values):
-    """Set radio button /V and kid /AS by walking page widget annotations."""
-    from pypdf.generic import NameObject
+    """Return {field_name: on_state_str} for every radio group in radio_values.
+
+    Walks page widget annotations (writer-space) to find each group's kid
+    on-state name (e.g. '/0', '/4').  The caller passes the result directly
+    to update_page_form_field_values so auto_regenerate builds proper appearances,
+    the same way it does for checkboxes.
+    """
     if not radio_values:
         return {}
 
-    # For each radio group we need: parent object, list of kid objects, target index.
-    # Collect by parent /T name; stop once all groups are accounted for.
-    groups = {}   # name → {'parent': obj, 'kids': [obj,...], 'target_idx': int}
+    on_states = {}   # name → on_state_str  e.g. 'Radio Button R1' → '/0'
 
     for page in writer.pages:
         page_obj = page.get_object() if hasattr(page, 'get_object') else page
@@ -1120,7 +1124,6 @@ def _set_radio_fields(writer, radio_values):
             if str(annot.get('/Subtype', '')) != '/Widget':
                 continue
 
-            # Walk up to the radio group parent (skip anonymous kids)
             parent_ref = annot.get('/Parent')
             if parent_ref is None:
                 continue
@@ -1128,15 +1131,13 @@ def _set_radio_fields(writer, radio_values):
                 parent = parent_ref.get_object()
             except Exception:
                 continue
-
-            ft = str(parent.get('/FT', ''))
-            if ft != '/Btn':
+            if str(parent.get('/FT', '')) != '/Btn':
                 continue
             try:
                 ff = int(parent.get('/Ff', 0))
             except Exception:
                 continue
-            if not (ff & (1 << 15)):   # bit 15 = radio button
+            if not (ff & (1 << 15)):
                 continue
 
             t_raw = parent.get('/T')
@@ -1146,89 +1147,37 @@ def _set_radio_fields(writer, radio_values):
                 name = t_raw.get_data().decode('utf-8', errors='replace')
             except Exception:
                 name = str(t_raw).strip('()')
-            if name not in radio_values:
+            if name not in radio_values or name in on_states:
                 continue
 
-            if name not in groups:
-                kids_ref = parent.get('/Kids', [])
-                kids_list = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
-                kid_objs = []
-                for kr in kids_list:
-                    try:
-                        kid_objs.append(kr.get_object())
-                    except Exception:
-                        kid_objs.append(None)
-                groups[name] = {
-                    'parent': parent,
-                    'kids': kid_objs,
-                    'target_idx': radio_values[name],
-                }
+            target_idx = radio_values[name]
+            kids_ref = parent.get('/Kids', [])
+            kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+            kids_list = list(kids)
 
-        if len(groups) == len(radio_values):
-            break   # found all groups, no need to scan more pages
+            # Find the on-state name for the target kid from its /AP/N keys
+            target_on_state = f'/{target_idx}'   # fallback
+            if 0 <= target_idx < len(kids_list):
+                try:
+                    kid = kids_list[target_idx].get_object()
+                    ap = kid.get('/AP', {})
+                    if hasattr(ap, 'get_object'):
+                        ap = ap.get_object()
+                    n = ap.get('/N', {})
+                    if hasattr(n, 'get_object'):
+                        n = n.get_object()
+                    ks = [k for k in n.keys() if k != '/Off']
+                    if ks:
+                        target_on_state = ks[0]
+                except Exception:
+                    pass
+            if not target_on_state.startswith('/'):
+                target_on_state = f'/{target_on_state}'
 
-    on_states = {}
-    for name, g in groups.items():
-        parent = g['parent']
-        kids   = g['kids']
-        target_idx = g['target_idx']
+            on_states[name] = target_on_state
 
-        # Determine the on-state name for the target kid (for /AS)
-        target_on_state = None
-        if 0 <= target_idx < len(kids) and kids[target_idx] is not None:
-            try:
-                kid = kids[target_idx]
-                ap = kid.get('/AP', {})
-                if hasattr(ap, 'get_object'):
-                    ap = ap.get_object()
-                n_dict = ap.get('/N', {})
-                if hasattr(n_dict, 'get_object'):
-                    n_dict = n_dict.get_object()
-                ks = [k for k in n_dict.keys() if k != '/Off']
-                if ks:
-                    target_on_state = ks[0]
-            except Exception:
-                pass
-        if target_on_state is None:
-            target_on_state = f'/{target_idx}'
-        if not target_on_state.startswith('/'):
-            target_on_state = f'/{target_on_state}'
-
-        # Set parent /V.  When /Opt is present, PDF viewers that match /V against
-        # the /Opt export-value array need the /Opt string, not the on-state name.
-        # Without /Opt, use the on-state NameObject (e.g. /0, /1).
-        v_value = NameObject(target_on_state)   # default: on-state name
-        opt_ref = parent.get('/Opt')
-        if opt_ref is not None:
-            try:
-                opt = opt_ref.get_object() if hasattr(opt_ref, 'get_object') else opt_ref
-                opt_arr = list(opt) if hasattr(opt, '__iter__') else []
-                if 0 <= target_idx < len(opt_arr):
-                    ev = opt_arr[target_idx]
-                    if hasattr(ev, 'get_object'):
-                        ev = ev.get_object()
-                    # /Opt entries may be strings or 2-element arrays [export, display]
-                    if hasattr(ev, '__iter__') and not isinstance(ev, (str, bytes)):
-                        ev_list = list(ev)
-                        ev = ev_list[0].get_object() if ev_list and hasattr(ev_list[0], 'get_object') else ev_list[0] if ev_list else ev
-                    v_value = ev   # PDFString export value
-            except Exception:
-                pass
-        parent[NameObject('/V')] = v_value
-
-        # Set each kid /AS
-        for i, kid in enumerate(kids):
-            if kid is None:
-                continue
-            try:
-                if i == target_idx:
-                    kid[NameObject('/AS')] = NameObject(target_on_state)
-                else:
-                    kid[NameObject('/AS')] = NameObject('/Off')
-            except Exception:
-                pass
-
-        on_states[name] = target_on_state
+        if len(on_states) == len(radio_values):
+            break
 
     return on_states
 
@@ -1399,19 +1348,15 @@ def _fill_pdf(subs):
                 field_values[TEXT_FIELDS[qid]] = val
                 filled_qids.add(qid)
 
-    # Fill text + checkboxes via standard pypdf API.
-    # auto_regenerate=True rebuilds each field's appearance stream from its /V value,
-    # ensuring text fields display their content even when the template has a stale /AP.
+    # Resolve radio_values {field_name: kid_index} → {field_name: on_state_str}
+    # then merge with field_values so a single update_page_form_field_values call
+    # handles text, checkboxes, AND radio buttons through the same auto_regenerate
+    # path — the same mechanism that makes checkbox check-marks visible on first open.
+    radio_on_states = _set_radio_fields(writer, radio_values)
+    all_values = {**field_values, **radio_on_states}
+
     for page in writer.pages:
-        writer.update_page_form_field_values(page, field_values, auto_regenerate=True)
-
-    # Fill radio buttons via direct AcroForm tree walk (/V + kid /AS).
-    _set_radio_fields(writer, radio_values)
-
-    # Do NOT set /NeedAppearances — it tells viewers to discard stored /AP streams
-    # and regenerate their own.  Viewer-generated radio button appearances are blank.
-    # The stored /AP streams are correct (pypdf auto_regenerate handled text/checkboxes;
-    # radio button /AP streams from the template draw the filled circle correctly).
+        writer.update_page_form_field_values(page, all_values, auto_regenerate=True)
 
     buf = io.BytesIO()
     writer.write(buf)
