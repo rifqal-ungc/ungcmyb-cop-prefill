@@ -1795,5 +1795,65 @@ def debug_field_tree():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/dry-run/<path:company_name>', methods=['GET'])
+def debug_dry_run(company_name):
+    """Debug: return computed radio_values and field_values for a company without generating PDF."""
+    try:
+        company_name = unquote(company_name)
+        _, data = _load()
+        subs = data.get(company_name)
+        if subs is None:
+            lc = company_name.lower()
+            matched = next((k for k in data if k.lower() == lc), None)
+            if matched:
+                subs = data[matched]
+            else:
+                return jsonify({'error': f'Company not found: {company_name}'}), 404
+
+        seen, clean = set(), []
+        for s in subs:
+            key = (s['question_id'], s['subquestion'], s['choice'], s['response'])
+            if key in seen:
+                continue
+            seen.add(key)
+            qid = ID_REMAP.get(s['question_id'], s['question_id'])
+            clean.append({**s, 'question_id': qid})
+
+        field_values, radio_values = {}, {}
+        for s in clean:
+            qid    = s['question_id']
+            choice = _remap(s['choice'])
+            subq   = _remap_subq(s['subquestion'])
+
+            if qid in MATRIX_RADIO:
+                q = MATRIX_RADIO[qid]
+                field = None
+                for label, fname in q['rows']:
+                    if _match(subq, label):
+                        field = fname
+                        break
+                if field:
+                    best_i = _best_option(choice, q['options'])
+                    if best_i >= 0:
+                        radio_values[field] = best_i
+
+        return jsonify({
+            'company': company_name,
+            'radio_values': radio_values,
+            'g4_detail': {
+                s['subquestion']: {
+                    'raw_choice': s['choice'],
+                    'remapped_choice': _remap(s['choice']),
+                    'remapped_subq': _remap_subq(s['subquestion']),
+                    'best_option': _best_option(_remap(s['choice']), MATRIX_RADIO['G4']['options']) if s['question_id'] in ('G4',) else None,
+                }
+                for s in subs if s['question_id'] == 'G4'
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
