@@ -797,9 +797,28 @@ _HRL_TOPICS_7 = [
     "gender equality and women's rights",
 ]
 
+# ---------------------------------------------------------------------------
+# Serpentine (boustrophedon) checkbox numbering — used by ALL MATRIX_CHECKBOX tables.
+#
+# The PDF numbers checkboxes in a snake pattern:
+#   col 0: ascending  → box = 1 + adj_row_idx
+#   col C: descending → box = C * n_rows + (n_rows - adj_row_idx)
+#
+# Each table has one "special" row (wages for HR/L, waste management for Env)
+# numbered separately at the END, right-to-left:
+#   box = n_total - col_idx
+#
+# n_rows  = count of non-special rows per column
+# n_total = total boxes in the table  (needed for special-row formula)
+# special_row = index in `rows` list of the special row (-1 if none)
+#
+# adj_row_idx: row_idx_in_list adjusted by skipping the special row.
+# Topics not in `rows` (HR/L [Topic(s)], extra env topics) → adj = n_rows-1.
+# ---------------------------------------------------------------------------
+
 MATRIX_CHECKBOX = {
     # G7: tracking/approach per gov topic (4 topics × 5 options = 20 boxes)
-    # 2026 uses "G7 V2 Check Box" (multi-select per row, not radio)
+    # No special row; 4 rows serpentine.
     'G7': {
         'rows': ['human rights', 'labour rights/decent work', 'environment', 'anti-corruption'],
         'options': [
@@ -809,10 +828,11 @@ MATRIX_CHECKBOX = {
             'conducts monitoring and evaluation',
             'incorporates lessons learned into operational policies and procedures',
         ],
-        'prefix': 'G7 V2 Check Box', 'start': 1, 'n_cols': 5,
+        'prefix': 'G7 V2 Check Box', 'n_rows': 4, 'n_total': 20,
         'text_field': 'G7 Text Field 9',
     },
     # E1.1: policy attributes per env topic (9 topics × 8 options = 72 boxes)
+    # special_row=5 (waste management) → boxes 65-72 right-to-left
     'E1.1': {
         'rows': _ENV_TOPICS_9,
         'options': [
@@ -825,7 +845,7 @@ MATRIX_CHECKBOX = {
             'developed involving environmental expertise from inside and/or outside the company',
             'other',
         ],
-        'prefix': 'E1.1 Check Box', 'start': 1, 'n_cols': 8,
+        'prefix': 'E1.1 Check Box', 'n_rows': 8, 'n_total': 72, 'special_row': 5,
         'text_field': 'E1.1 Text Field 1',
     },
     # E2: stakeholder engagement per env topic (9 topics × 7 options = 63 boxes)
@@ -840,7 +860,7 @@ MATRIX_CHECKBOX = {
             'to collaborate in the prevention/mitigation of the risks/impacts in question',
             'other',
         ],
-        'prefix': 'E2 Check Box', 'start': 1, 'n_cols': 7,
+        'prefix': 'E2 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 5,
         'text_field': 'E2 Text Field 1',
     },
     # E3: prevention actions per env topic (9 topics × 7 options = 63 boxes)
@@ -855,7 +875,7 @@ MATRIX_CHECKBOX = {
             'collaborated with governmental or regulatory bodies',
             'other',
         ],
-        'prefix': 'E3 Check Box', 'start': 1, 'n_cols': 7,
+        'prefix': 'E3 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 5,
         'text_field': 'E3 Text Field 1',
     },
     # E3.1.2: progress tracking per env topic (9 topics × 5 options = 45 boxes)
@@ -869,12 +889,13 @@ MATRIX_CHECKBOX = {
             'progress is reported externally',
             'other',
         ],
-        'prefix': 'E3.1.2. Check Box', 'start': 1, 'n_cols': 5,
+        'prefix': 'E3.1.2. Check Box', 'n_rows': 8, 'n_total': 45, 'special_row': 5,
         'text_field': 'E3.1.2 Text Field 10',
     },
     # HR/L2.1: policy attributes per HR/L topic (8 rows × 8 options = 64 boxes)
-    # Row 8 = HR/L1.1-selected topic (any topic not in _HRL_TOPICS_7 → row_idx=7)
-    # PDF uses COLUMN-MAJOR box ordering: box = start + col_idx * n_rows + row_idx
+    # special_row=5 (wages) → boxes 57-64 right-to-left
+    # [Topic(s)] row (HR/L1.1 selection) → adj_row_idx=6 (last non-special)
+    # 2025 "applied to own operations and suppliers" → check BOTH col 3 and col 4
     'HR/L2.1': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -887,16 +908,13 @@ MATRIX_CHECKBOX = {
             'developed involving human rights/labour expertise from inside and/or outside the company',
             'other',
         ],
-        # 2025 combined "own operations and suppliers" → check BOTH col 3 and col 4
         'choice_expansions': {
             "applied to the company's own operations and suppliers": [3, 4],
         },
-        'prefix': 'L2.1 Check Box', 'start': 1, 'n_cols': 8, 'n_rows': 8,
-        'col_major': True,
+        'prefix': 'L2.1 Check Box', 'n_rows': 7, 'n_total': 64, 'special_row': 5,
         'text_field': 'L2.1 Text Field 14',
     },
     # HR/L3: stakeholder engagement per HR/L topic (8 rows × 6 options = 48 boxes)
-    # PDF uses COLUMN-MAJOR box ordering
     'HR/L3': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -907,12 +925,10 @@ MATRIX_CHECKBOX = {
             'to assess progress in preventing/mitigating the risks/impacts in question',
             'to collaborate in the prevention/mitigation of the risks/impacts in question',
         ],
-        'prefix': 'L3 Check Box', 'start': 1, 'n_cols': 6, 'n_rows': 8,
-        'col_major': True,
+        'prefix': 'L3 Check Box', 'n_rows': 7, 'n_total': 48, 'special_row': 5,
         'text_field': 'L3 Text Field ',
     },
     # HR/L4: prevention actions per HR/L topic (8 rows × 7 options = 56 boxes)
-    # PDF uses COLUMN-MAJOR box ordering
     'HR/L4': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -924,8 +940,7 @@ MATRIX_CHECKBOX = {
             'collaborated with governmental or regulatory bodies',
             'other',
         ],
-        'prefix': 'L4 Check Box', 'start': 1, 'n_cols': 7, 'n_rows': 8,
-        'col_major': True,
+        'prefix': 'L4 Check Box', 'n_rows': 7, 'n_total': 56, 'special_row': 5,
         'text_field': 'L4 Text Field',
     },
 }
@@ -1227,29 +1242,45 @@ def _fill_pdf(subs):
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
-        # ── MATRIX CHECKBOX (select-all per row, row×col layout) ─────────────
+        # ── MATRIX CHECKBOX (serpentine numbering) ───────────────────────────
         elif qid in MATRIX_CHECKBOX:
             q = MATRIX_CHECKBOX[qid]
-            row_idx = next(
+            row_idx_in_list = next(
                 (i for i, r in enumerate(q['rows']) if _match(subq, r)), -1
             )
-            # For col-major tables (HR/L2.1, HR/L3, HR/L4): any topic not
-            # matching the 7 fixed rows falls into the 8th "[Topic(s)]" row.
-            if row_idx < 0 and q.get('col_major') and subq:
-                row_idx = 7
-            # choice_expansions: 2025 combined answers that map to multiple 2026 cols
-            expansions = q.get('choice_expansions', {})
+            special   = q.get('special_row', -1)
+            n_rows    = q['n_rows']
+            n_total   = q['n_total']
+
+            # Determine (is_special, adj_row_idx)
+            if row_idx_in_list == special:
+                is_special, adj_row_idx = True, -1
+            elif row_idx_in_list < 0:
+                # Unknown topic (HR/L [Topic(s)], extra env topic) → last row
+                is_special  = False
+                adj_row_idx = (n_rows - 1) if subq else -1
+            else:
+                is_special = False
+                adj_row_idx = (row_idx_in_list if (special < 0 or row_idx_in_list < special)
+                               else row_idx_in_list - 1)
+
+            # Resolve col indices; support choice_expansions for multi-box 2025→2026
+            expansions  = q.get('choice_expansions', {})
             col_indices = expansions.get(_norm(choice))
             if col_indices is None:
-                ci = _best_option(choice, q['options'])
+                ci          = _best_option(choice, q['options'])
                 col_indices = [ci] if ci >= 0 else []
-            if row_idx >= 0 and col_indices:
+
+            if col_indices and (adj_row_idx >= 0 or is_special):
                 for col_idx in col_indices:
-                    if q.get('col_major'):
-                        n_rows = q.get('n_rows', len(q['rows']))
-                        box_num = q['start'] + col_idx * n_rows + row_idx
+                    if col_idx < 0:
+                        continue
+                    if is_special:
+                        box_num = n_total - col_idx
+                    elif col_idx == 0:
+                        box_num = 1 + adj_row_idx
                     else:
-                        box_num = q['start'] + row_idx * q['n_cols'] + col_idx
+                        box_num = col_idx * n_rows + (n_rows - adj_row_idx)
                     field_values[f"{q['prefix']} {box_num}"] = '/Yes'
                 filled_qids.add(qid)
             if response and q.get('text_field'):
