@@ -358,6 +358,17 @@ MATRIX_RADIO = {
         'text_field': 'G7.1 Text Field 9',
     },
     # G7: tracking effectiveness per topic — moved to MATRIX_CHECKBOX (G7 V2 Check Box 1-20)
+    # G8: executive pay linked to sustainability performance (3 options × 4 rows)
+    # G9 Radio Button fields are physically in the G8 visual section.
+    'G8': {
+        'options': [
+            'no, this is not a current priority',
+            'no, but we plan to within the next two years',
+            'yes',
+        ],
+        'rows': _gov_rows('G9'),   # G9 Radio Button fields are physically in the G8 visual section
+        'text_field': 'G9 Text Field 9',
+    },
     # ── Environment ─────────────────────────────────────────────────────────
     'E1': {
         'options': [
@@ -990,7 +1001,6 @@ GHG_SCOPE_FIELDS = {
 TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
-    'G8': 'G9 Text Field 9',   # G8 visual additional-info is in the G9-named text field
     'G10': 'G11 Text Field 11',   # 2025 G10 (women in management %) → 2026 G11 field
     'G11': 'G11 Text Field 12',   # 2025 G11 (C-suite) → G11 additional info
     'E5': 'E5 Text Field 7',
