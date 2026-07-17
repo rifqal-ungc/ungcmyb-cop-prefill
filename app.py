@@ -1352,11 +1352,76 @@ def _fill_pdf(subs):
     # then merge with field_values so a single update_page_form_field_values call
     # handles text, checkboxes, AND radio buttons through the same auto_regenerate
     # path — the same mechanism that makes checkbox check-marks visible on first open.
+    from pypdf.generic import NameObject as _NameObj
+
+    # Resolve radio_values {field_name: kid_index} → {field_name: on_state_str}
     radio_on_states = _set_radio_fields(writer, radio_values)
     all_values = {**field_values, **radio_on_states}
 
+    # update_page_form_field_values handles text, checkboxes, and radio /AS states.
+    # auto_regenerate=True rebuilds /AP appearance streams but also sets /NeedAppearances=True
+    # (which some viewers use to regenerate from /V+/Opt, discarding stored /AS).
+    # We fix /V and clear /NeedAppearances below.
     for page in writer.pages:
         writer.update_page_form_field_values(page, all_values, auto_regenerate=True)
+
+    # Fix /V on radio button parents: update_page_form_field_values stores it as
+    # TextString("/4") but PDF viewers expect a NameObject (/4) for the on-state.
+    # Also clear /NeedAppearances so viewers use the stored /AP streams instead of
+    # regenerating from /V+/Opt (which mismaps "/4" to the wrong column).
+    seen_radio_parents: set = set()
+    for page in writer.pages:
+        page_obj = page.get_object() if hasattr(page, 'get_object') else page
+        annots_ref = page_obj.get('/Annots')
+        if annots_ref is None:
+            continue
+        annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+        if not hasattr(annots, '__iter__'):
+            continue
+        for annot_ref in annots:
+            try:
+                annot = annot_ref.get_object()
+            except Exception:
+                continue
+            if str(annot.get('/Subtype', '')) != '/Widget':
+                continue
+            parent_ref = annot.get('/Parent')
+            if parent_ref is None:
+                continue
+            try:
+                parent = parent_ref.get_object()
+            except Exception:
+                continue
+            if str(parent.get('/FT', '')) != '/Btn':
+                continue
+            try:
+                ff = int(parent.get('/Ff', 0))
+            except Exception:
+                continue
+            if not (ff & (1 << 15)):
+                continue
+            t_raw = parent.get('/T')
+            if t_raw is None:
+                continue
+            try:
+                name = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception:
+                name = str(t_raw).strip('()')
+            if name not in radio_on_states or id(parent) in seen_radio_parents:
+                continue
+            seen_radio_parents.add(id(parent))
+            on_state = radio_on_states[name]
+            if not on_state.startswith('/'):
+                on_state = f'/{on_state}'
+            parent[_NameObj('/V')] = _NameObj(on_state)
+
+    # Clear /NeedAppearances so viewers honour the stored /AP streams
+    try:
+        acroform = writer._root_object['/AcroForm'].get_object()
+        if '/NeedAppearances' in acroform:
+            del acroform['/NeedAppearances']
+    except Exception:
+        pass
 
     buf = io.BytesIO()
     writer.write(buf)
