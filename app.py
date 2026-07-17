@@ -56,6 +56,8 @@ def _load():
 # ---------------------------------------------------------------------------
 def _norm(s):
     s = str(s or '').replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+    # Normalize curly/smart quotes to straight equivalents (common in Excel data)
+    s = s.replace('’', "'").replace('‘', "'").replace('“', '"').replace('”', '"')
     s = re.sub(r'\s*/\s*', '/', s)
     s = re.sub(r'[\s:\-]+$', '', s)
     return re.sub(r'\s+', ' ', s.lower().strip())
@@ -871,7 +873,8 @@ MATRIX_CHECKBOX = {
         'text_field': 'E3.1.2 Text Field 10',
     },
     # HR/L2.1: policy attributes per HR/L topic (8 rows × 8 options = 64 boxes)
-    # Row 8 = first HR/L1.1-selected topic (handled by topic lookup below)
+    # Row 8 = HR/L1.1-selected topic (any topic not in _HRL_TOPICS_7 → row_idx=7)
+    # PDF uses COLUMN-MAJOR box ordering: box = start + col_idx * n_rows + row_idx
     'HR/L2.1': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -884,10 +887,16 @@ MATRIX_CHECKBOX = {
             'developed involving human rights/labour expertise from inside and/or outside the company',
             'other',
         ],
-        'prefix': 'L2.1 Check Box', 'start': 1, 'n_cols': 8,
+        # 2025 combined "own operations and suppliers" → check BOTH col 3 and col 4
+        'choice_expansions': {
+            "applied to the company's own operations and suppliers": [3, 4],
+        },
+        'prefix': 'L2.1 Check Box', 'start': 1, 'n_cols': 8, 'n_rows': 8,
+        'col_major': True,
         'text_field': 'L2.1 Text Field 14',
     },
     # HR/L3: stakeholder engagement per HR/L topic (8 rows × 6 options = 48 boxes)
+    # PDF uses COLUMN-MAJOR box ordering
     'HR/L3': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -898,10 +907,12 @@ MATRIX_CHECKBOX = {
             'to assess progress in preventing/mitigating the risks/impacts in question',
             'to collaborate in the prevention/mitigation of the risks/impacts in question',
         ],
-        'prefix': 'L3 Check Box', 'start': 1, 'n_cols': 6,
+        'prefix': 'L3 Check Box', 'start': 1, 'n_cols': 6, 'n_rows': 8,
+        'col_major': True,
         'text_field': 'L3 Text Field ',
     },
     # HR/L4: prevention actions per HR/L topic (8 rows × 7 options = 56 boxes)
+    # PDF uses COLUMN-MAJOR box ordering
     'HR/L4': {
         'rows': _HRL_TOPICS_7,
         'options': [
@@ -913,7 +924,8 @@ MATRIX_CHECKBOX = {
             'collaborated with governmental or regulatory bodies',
             'other',
         ],
-        'prefix': 'L4 Check Box', 'start': 1, 'n_cols': 7,
+        'prefix': 'L4 Check Box', 'start': 1, 'n_cols': 7, 'n_rows': 8,
+        'col_major': True,
         'text_field': 'L4 Text Field',
     },
 }
@@ -1221,10 +1233,24 @@ def _fill_pdf(subs):
             row_idx = next(
                 (i for i, r in enumerate(q['rows']) if _match(subq, r)), -1
             )
-            col_idx = _best_option(choice, q['options'])
-            if row_idx >= 0 and col_idx >= 0:
-                box_num = q['start'] + row_idx * q['n_cols'] + col_idx
-                field_values[f"{q['prefix']} {box_num}"] = '/Yes'
+            # For col-major tables (HR/L2.1, HR/L3, HR/L4): any topic not
+            # matching the 7 fixed rows falls into the 8th "[Topic(s)]" row.
+            if row_idx < 0 and q.get('col_major') and subq:
+                row_idx = 7
+            # choice_expansions: 2025 combined answers that map to multiple 2026 cols
+            expansions = q.get('choice_expansions', {})
+            col_indices = expansions.get(_norm(choice))
+            if col_indices is None:
+                ci = _best_option(choice, q['options'])
+                col_indices = [ci] if ci >= 0 else []
+            if row_idx >= 0 and col_indices:
+                for col_idx in col_indices:
+                    if q.get('col_major'):
+                        n_rows = q.get('n_rows', len(q['rows']))
+                        box_num = q['start'] + col_idx * n_rows + row_idx
+                    else:
+                        box_num = q['start'] + row_idx * q['n_cols'] + col_idx
+                    field_values[f"{q['prefix']} {box_num}"] = '/Yes'
                 filled_qids.add(qid)
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
