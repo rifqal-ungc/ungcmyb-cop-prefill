@@ -104,19 +104,8 @@ _CREMAP = {
     'every 2 years': 'every two years',
     # E6: 2025 Scope 3 measurement answer "Known" maps to 2026 "yes"
     'known': 'yes',
-    # G7: 2025 tracking-maturity options → 2026 approach checkboxes
-    'we do not track the effectiveness of our actions on this topic':
-        'no actions are systematically tracked',
-    'we track this, but informally or through indirect measures':
-        'gathers and assesses feedback from relevant stakeholders',
-    'we track this formally against qualitative goals or milestones':
-        'sets and regularly tracks goals and targets/kpis',
-    'we track this formally against quantitative targets':
-        'conducts monitoring and evaluation',
-    'conducts investigation reviews and leverages learnings to influence both internal and external affairs':
-        'incorporates lessons learned into operational policies and procedures',
-    'conducts investigation reviews and leverages learnings':
-        'incorporates lessons learned into operational policies and procedures',
+    # G7 mappings removed: 2025 G7 is a single-radio maturity scale, 2026 G7 is
+    # multi-checkbox "approaches taken" — different question structure, no safe mapping.
 }
 
 def _remap(text):
@@ -822,20 +811,9 @@ _HRL_TOPICS_7 = [
 # ---------------------------------------------------------------------------
 
 MATRIX_CHECKBOX = {
-    # G7: tracking/approach per gov topic (4 topics × 5 options = 20 boxes)
-    # No special row; 4 rows serpentine.
-    'G7': {
-        'rows': ['human rights', 'labour rights/decent work', 'environment', 'anti-corruption'],
-        'options': [
-            'no actions are systematically tracked',
-            'gathers and assesses feedback from relevant stakeholders',
-            'sets and regularly tracks goals and targets/kpis',
-            'conducts monitoring and evaluation',
-            'incorporates lessons learned into operational policies and procedures',
-        ],
-        'prefix': 'G7 V2 Check Box', 'n_rows': 4, 'n_total': 20,
-        'text_field': 'G8 Text Field 9',   # G7 visual additional-info is in the G8-named text field
-    },
+    # G7 intentionally omitted: 2025 G7 is a single-radio maturity scale per topic,
+    # 2026 G7 is multi-checkbox "approaches taken" — no safe 1-to-1 mapping exists.
+    # G7 is left blank; a note is added to the user-facing populated-fields list.
     # E1.1: policy attributes per env topic (9 topics × 8 options = 72 boxes)
     # special_row=5 (waste management) → boxes 65-72 right-to-left
     'E1.1': {
@@ -1343,7 +1321,9 @@ def _fill_pdf(subs):
             subq_fields = BOARD_FIELDS[qid]
             subq_norm = _norm(s['subquestion'])
             fname = subq_fields.get(subq_norm)
-            if fname and _match(choice, 'known') and response:
+            # Use raw choice (not remapped) — _remap converts "Known" → "yes" for E5.1,
+            # which would break this check.
+            if fname and _match(s['choice'], 'known') and response:
                 field_values[fname] = str(response)
                 filled_qids.add(qid)
 
@@ -1960,7 +1940,7 @@ def debug_dry_run(company_name):
                 subq_norm = _norm(s['subquestion'])
                 fname = subq_fields.get(subq_norm)
                 response = s.get('response') or s.get('RESPONSE') or ''
-                choice_match = _match(choice, 'known')
+                choice_match = _match(s['choice'], 'known')  # raw, not remapped
                 g9_debug.append({
                     'qid': qid,
                     'raw_subq': s['subquestion'],

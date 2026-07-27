@@ -442,6 +442,10 @@
       </div>
     </div>
 
+    <div id="prefill-notes" style="display:none">
+      <h3 style="margin:1.2rem 0 0.5rem;font-size:0.95rem;color:var(--text-muted)">Pre-Fill Notes</h3>
+      <div id="prefill-notes-list"></div>
+    </div>
     <div id="pending-section" style="display:none">
       <div class="pending-header">
         <h3>Questions Requiring Manual Input</h3>
@@ -741,6 +745,20 @@
           ).join('')}
         </div>`;
       }).join('');
+
+      // Static notes for questions that are structurally incompatible with pre-fill
+      const PREFILL_NOTES = [
+        { qid: 'G7', text: 'G7 (Tracking effectiveness) was not pre-filled. The 2025 question used a single maturity-level radio button per topic; the 2026 question uses multi-select checkboxes for specific approaches. These are structurally different — please fill G7 manually.' },
+      ];
+      const notesEl = document.getElementById('prefill-notes');
+      const notesList = document.getElementById('prefill-notes-list');
+      notesList.innerHTML = PREFILL_NOTES.map(n =>
+        `<div class="pending-item" style="background:var(--bg-card);border-left:3px solid var(--gold);padding:0.6rem 0.8rem;margin-bottom:0.4rem;border-radius:4px;font-size:0.85rem;color:var(--text-muted)">
+          <span class="qid-badge" style="background:var(--gold)">${n.qid}</span>
+          <span class="q-text">${n.text}</span>
+        </div>`
+      ).join('');
+      notesEl.style.display = 'block';
 
       document.getElementById('copy-btn').onclick = () => {
         const text = pendingTotal.map(q => `${q}: ${Q_LABELS[q] || q}`).join('\n');
