@@ -1937,6 +1937,7 @@ def debug_dry_run(company_name):
             clean.append({**s, 'question_id': qid})
 
         field_values, radio_values = {}, {}
+        g9_debug = []
         for s in clean:
             qid    = s['question_id']
             choice = _remap(s['choice'])
@@ -1954,9 +1955,32 @@ def debug_dry_run(company_name):
                     if best_i >= 0:
                         radio_values[field] = best_i
 
+            elif qid in BOARD_FIELDS:
+                subq_fields = BOARD_FIELDS[qid]
+                subq_norm = _norm(s['subquestion'])
+                fname = subq_fields.get(subq_norm)
+                response = s.get('response') or s.get('RESPONSE') or ''
+                choice_match = _match(choice, 'known')
+                g9_debug.append({
+                    'qid': qid,
+                    'raw_subq': s['subquestion'],
+                    'subq_norm': subq_norm,
+                    'board_fields_keys': list(subq_fields.keys()),
+                    'fname_matched': fname,
+                    'raw_choice': s['choice'],
+                    'choice_remapped': choice,
+                    'choice_matches_known': choice_match,
+                    'response': response,
+                    'would_fill': bool(fname and choice_match and response),
+                })
+                if fname and choice_match and response:
+                    field_values[fname] = str(response)
+
         return jsonify({
             'company': company_name,
             'radio_values': radio_values,
+            'field_values_g10': {k: v for k, v in field_values.items() if 'G 10' in k},
+            'g9_debug': g9_debug,
             'g4_detail': {
                 s['subquestion']: {
                     'raw_choice': s['choice'],
