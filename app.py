@@ -1003,8 +1003,8 @@ GHG_SCOPE_FIELDS = {
 TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
-    'G10': 'G11 Text Field 11',   # 2025 G10 (women in management %) → 2026 G11 field
-    'G11': 'G11 Text Field 12',   # 2025 G11 (C-suite) → G11 additional info
+    'G10': 'G 11 Text Field 17',   # 2025 G10 (women in management %) → narrow % box at y=433
+    # G11 intentionally omitted: 2025 G11 is C-suite Women/Men choice rows, not a text field
     'E5': 'E5 Text Field 7',
     'E8': 'E8 Text Field 1',
     'E13': 'E13 Text Field 5',
