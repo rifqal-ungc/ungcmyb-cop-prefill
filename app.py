@@ -1039,9 +1039,13 @@ TEXT_FIELDS = {
     'G6A':  'G7 Text Field 9',
     'G7A':  'G8 Text Field 9',
     'G8A':  'G9 Text Field 9',
-    'G12A': 'G12 V2 Radio Button ',   # unlikely but safe
-    'G13A': 'G13 Text Field 12',
-    'G14A': 'G14 Text Field 12',
+    # 2025 G12A/G12AA = extra info for reporting-frameworks (→ 2026 G13 additional info)
+    'G12A':  'G13 Text Field 12',
+    'G12AA': 'G13 Text Field 12',
+    # 2025 G13A/G13AA = extra info for assurance question (→ 2026 G14 additional info)
+    'G13A':  'G14 Text Field 12',
+    'G13AA': 'G14 Text Field 12',
+    'G14A':  'G14 Text Field 12',
     'E1A':  'E1 Text Field 1',
     'E4A':  'E4 Text Field 1',
     'E5A':  'E5 Text Field 7',
@@ -1574,6 +1578,48 @@ def cors(resp):
     resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return resp
+
+
+@app.route('/api/debug/test-g13-checkboxes', methods=['GET'])
+def test_g13_checkboxes():
+    """Diagnostic: tick every G13 Check Box (14–55) to map their physical positions."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+        all_g13 = {f'G13 Check Box {n}': '/Yes' for n in range(14, 56)}
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, all_g13, auto_regenerate=True)
+        from pypdf.generic import NameObject as _N2
+        for page in writer.pages:
+            page_obj = page.get_object() if hasattr(page, 'get_object') else page
+            annots_ref = page_obj.get('/Annots')
+            if annots_ref is None: continue
+            annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+            if not hasattr(annots, '__iter__'): continue
+            for ar in annots:
+                try:
+                    a = ar.get_object()
+                    if str(a.get('/FT','')) != '/Btn' or (int(a.get('/Ff',0)) & (1<<15)): continue
+                    v = a.get('/V')
+                    if v is None: continue
+                    try: vs = v.get_data().decode('utf-8', errors='replace')
+                    except: vs = str(v).strip('()')
+                    if not vs.startswith('/'): vs = f'/{vs}'
+                    a[_N2('/V')] = _N2(vs)
+                except Exception: pass
+        try:
+            acroform = writer._root_object['/AcroForm'].get_object()
+            if '/NeedAppearances' in acroform:
+                del acroform['/NeedAppearances']
+        except Exception: pass
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        return Response(buf.read(), mimetype='application/pdf',
+            headers={'Content-Disposition': 'attachment; filename="G13_diagnostic.pdf"'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/companies', methods=['GET', 'OPTIONS'])
