@@ -1990,6 +1990,8 @@ def debug_dry_run(company_name):
                 for opt_norm, fname in q['fields'].items():
                     m = _match(choice, opt_norm)
                     matches.append({'opt': opt_norm[:60], 'match': m, 'field': fname})
+                    if m:
+                        field_values[fname] = '/Yes'   # mirror fill_pdf logic
                 checkbox_debug.append({
                     'orig_qid': s.get('question_id'), 'mapped_qid': qid,
                     'raw_choice': s['choice'][:80], 'choice_norm': choice[:80],
@@ -2041,6 +2043,7 @@ def debug_dry_run(company_name):
             'radio_values': radio_values,
             'field_values_g10': {k: v for k, v in field_values.items() if 'G 10' in k},
             'field_values_text': {k: v for k, v in field_values.items() if 'G 10' not in k},
+            'field_values_checkboxes': {k: v for k, v in field_values.items() if 'Check Box' in k},
             'g10_g11_rows': [
                 {'qid': s['question_id'], 'subq': s['subquestion'], 'choice': s['choice'], 'response': s['response']}
                 for s in subs if s['question_id'] in ('G10', 'G11')
