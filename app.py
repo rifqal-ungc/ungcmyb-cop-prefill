@@ -1407,6 +1407,8 @@ def _fill_pdf(subs):
         elif qid in TEXT_FIELDS:
             val = response or choice
             if val:
+                # Collapse newlines to avoid overflowing fixed-height PDF fields
+                val = ' / '.join(part.strip() for part in val.splitlines() if part.strip())
                 field_values[TEXT_FIELDS[qid]] = val
                 filled_qids.add(qid)
 
@@ -1511,9 +1513,19 @@ def _fill_pdf(subs):
             else:
                 parent[_NameObj('/V')] = _NameObj(on_state)
 
-    # Fix /V on checkbox fields: update_page_form_field_values stores it as a
-    # TextString("\/Yes") but PDF viewers (especially Adobe) require a NameObject
-    # for checkbox on/off states.  Walk every widget annotation and coerce /V.
+    # Fix /V on checkbox fields — two jobs in one pass:
+    #   1. Coerce any TextString("/Yes") stored by update_page_form_field_values
+    #      to NameObject(/Yes), as required by PDF viewers.
+    #   2. Directly apply field_values entries for checkboxes that
+    #      update_page_form_field_values silently skipped (e.g. G13 Check Box 26-28
+    #      on a page-obj that pypdf fails to match during its per-page scan).
+    # Build a lookup of checkbox names we want to set to a specific value.
+    _checkbox_overrides = {
+        k: (v if v.startswith('/') else f'/{v}')
+        for k, v in field_values.items()
+        if isinstance(v, str) and (v.startswith('/') or v in ('Yes', 'Off'))
+    }
+    from pypdf.generic import NameObject as _NameObj2
     for page in writer.pages:
         page_obj = page.get_object() if hasattr(page, 'get_object') else page
         annots_ref = page_obj.get('/Annots')
@@ -1532,21 +1544,32 @@ def _fill_pdf(subs):
             # Checkbox: /Btn but NOT radio (bit 16 of /Ff not set)
             if ft != '/Btn' or (ff & (1 << 15)):
                 continue
+            # Resolve field name for direct-set override check
+            t_raw = annot.get('/T')
+            if t_raw is not None:
+                try:
+                    fname = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception:
+                    fname = str(t_raw).strip('()')
+                if fname in _checkbox_overrides:
+                    target = _NameObj2(_checkbox_overrides[fname])
+                    annot[_NameObj2('/V')]  = target
+                    annot[_NameObj2('/AS')] = target
+                    continue
+            # Coerce whatever /V is already set to a NameObject (type safety)
             v_obj = annot.get('/V')
             if v_obj is None:
                 continue
             v_str = str(v_obj).strip("()")
-            # Convert TextString "/Yes" → NameObject /Yes (and similarly /Off)
             if hasattr(v_obj, 'get_data'):
                 try:
                     v_str = v_obj.get_data().decode('utf-8', errors='replace')
                 except Exception:
                     pass
             if v_str and v_str.startswith('/'):
-                v_str = v_str  # already has the slash
+                pass
             elif not v_str.startswith('/'):
                 v_str = f'/{v_str}'
-            from pypdf.generic import NameObject as _NameObj2
             annot[_NameObj2('/V')] = _NameObj2(v_str)
 
     # Clear /NeedAppearances so viewers honour the stored /AP streams
