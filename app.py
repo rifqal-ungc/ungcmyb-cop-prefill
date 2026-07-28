@@ -1580,13 +1580,10 @@ def _fill_pdf(subs):
     except Exception:
         pass
 
-    # Clear /NeedAppearances so viewers honour the stored /AP streams
-    try:
-        acroform = writer._root_object['/AcroForm'].get_object()
-        if '/NeedAppearances' in acroform:
-            del acroform['/NeedAppearances']
-    except Exception:
-        pass
+    # Leave /NeedAppearances=True (set by auto_regenerate) so viewers regenerate
+    # checkbox appearances from /V.  Clearing it forces use of stored /AP streams,
+    # but those streams on some template pages (e.g. page-obj 196) fail to render
+    # in common viewers even though /V and /AS are correctly set.
 
     buf = io.BytesIO()
     writer.write(buf)
