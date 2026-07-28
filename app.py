@@ -931,29 +931,53 @@ MATRIX_CHECKBOX = {
 # ---------------------------------------------------------------------------
 # Board composition (G9) — maps (qid, subq) → PDF text field
 # RESP is the numeric value (write only when CHOICE == "Known")
+# Field order confirmed via y-coordinate inspection of template.pdf page 15:
+#   7=Total(#), 8=Male(%), 9=Female(%), 10=Other(%), 11=Under30(%),
+#   12=30-50(%), 13=Above50(%), 14=Minority(%), 15=Executive(%),
+#   16=Non-executive(%), 17=Independent(%)
+#   "G10 Text Field 10" (no space) = additional info text area at bottom
 # ---------------------------------------------------------------------------
 BOARD_FIELDS = {
-    # G 10 Text Field 7 = Total (#), 8 = Male (%), 9 = Additional info text area,
-    # 10 = Female (%), 11 = Other (%), 12 = Under 30 (%), 13 = 30-50 (%),
-    # 14 = Above 50 (%), 15 = Minority (%), 16 = Executive (%), 17 = Independent (%)
-    # Non-executive (%) has no text field in the 2026 template.
     'G9':  {'total number of board members (#)': 'G 10 Text Field 7'},
     'G9B': {
         'male (%)':   'G 10 Text Field 8',
-        'female (%)': 'G 10 Text Field 10',
-        'other (%)':  'G 10 Text Field 11',
+        'female (%)': 'G 10 Text Field 9',
+        'other (%)':  'G 10 Text Field 10',
     },
     'G9C': {
-        'under 30 years old (%)':  'G 10 Text Field 12',
-        '30-50 years old (%)':     'G 10 Text Field 13',
-        'above 50 years old (%)':  'G 10 Text Field 14',
+        'under 30 years old (%)':  'G 10 Text Field 11',
+        '30-50 years old (%)':     'G 10 Text Field 12',
+        'above 50 years old (%)':  'G 10 Text Field 13',
     },
     'G9D': {
-        'from minority or vulnerable groups (%)': 'G 10 Text Field 15',
+        'from minority or vulnerable groups (%)': 'G 10 Text Field 14',
     },
     'G9E': {
-        'executive (%)':   'G 10 Text Field 16',
+        'executive (%)':   'G 10 Text Field 15',
         'independent (%)': 'G 10 Text Field 17',
+    },
+}
+
+# G10 Radio Button N (on-state = '/0') are the "Not applicable" buttons per row.
+# Row order matches BOARD_FIELDS field order above.
+BOARD_NA_RADIOS = {
+    'G9':  {'total number of board members (#)': 'G10 Radio Button 1'},
+    'G9B': {
+        'male (%)':   'G10 Radio Button 2',
+        'female (%)': 'G10 Radio Button 3',
+        'other (%)':  'G10 Radio Button 4',
+    },
+    'G9C': {
+        'under 30 years old (%)':  'G10 Radio Button 5',
+        '30-50 years old (%)':     'G10 Radio Button 6',
+        'above 50 years old (%)':  'G10 Radio Button 7',
+    },
+    'G9D': {
+        'from minority or vulnerable groups (%)': 'G10 Radio Button 8',
+    },
+    'G9E': {
+        'executive (%)':   'G10 Radio Button 9',
+        'independent (%)': 'G10 Radio Button 11',
     },
 }
 
@@ -1321,11 +1345,15 @@ def _fill_pdf(subs):
             subq_fields = BOARD_FIELDS[qid]
             subq_norm = _norm(s['subquestion'])
             fname = subq_fields.get(subq_norm)
-            # Use raw choice (not remapped) — _remap converts "Known" → "yes" for E5.1,
-            # which would break this check.
+            # Use raw choice (not remapped) — _remap converts "Known" → "yes" for E5.1.
             if fname and _match(s['choice'], 'known') and response:
                 field_values[fname] = str(response)
                 filled_qids.add(qid)
+            elif _match(s['choice'], 'not applicable'):
+                na_radio = BOARD_NA_RADIOS.get(qid, {}).get(subq_norm)
+                if na_radio:
+                    field_values[na_radio] = '/0'
+                    filled_qids.add(qid)
 
         # ── GHG SCOPE EMISSIONS (E5.1) ────────────────────────────────────
         elif qid == 'E5.1':
