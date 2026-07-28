@@ -1978,10 +1978,23 @@ def debug_dry_run(company_name):
 
         field_values, radio_values = {}, {}
         g9_debug = []
+        checkbox_debug = []
         for s in clean:
             qid    = s['question_id']
             choice = _remap(s['choice'])
             subq   = _remap_subq(s['subquestion'])
+
+            if qid in CHECKBOX_MAP:
+                q = CHECKBOX_MAP[qid]
+                matches = []
+                for opt_norm, fname in q['fields'].items():
+                    m = _match(choice, opt_norm)
+                    matches.append({'opt': opt_norm[:60], 'match': m, 'field': fname})
+                checkbox_debug.append({
+                    'orig_qid': s.get('question_id'), 'mapped_qid': qid,
+                    'raw_choice': s['choice'][:80], 'choice_norm': choice[:80],
+                    'match_results': matches,
+                })
 
             if qid in MATRIX_RADIO:
                 q = MATRIX_RADIO[qid]
@@ -2033,6 +2046,7 @@ def debug_dry_run(company_name):
                 for s in subs if s['question_id'] in ('G10', 'G11')
             ],
             'g9_debug': g9_debug,
+            'checkbox_debug': checkbox_debug,
             'g4_detail': {
                 s['subquestion']: {
                     'raw_choice': s['choice'],
