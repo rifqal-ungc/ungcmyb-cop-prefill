@@ -1507,6 +1507,44 @@ def _fill_pdf(subs):
             else:
                 parent[_NameObj('/V')] = _NameObj(on_state)
 
+    # Fix /V on checkbox fields: update_page_form_field_values stores it as a
+    # TextString("\/Yes") but PDF viewers (especially Adobe) require a NameObject
+    # for checkbox on/off states.  Walk every widget annotation and coerce /V.
+    for page in writer.pages:
+        page_obj = page.get_object() if hasattr(page, 'get_object') else page
+        annots_ref = page_obj.get('/Annots')
+        if annots_ref is None:
+            continue
+        annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
+        if not hasattr(annots, '__iter__'):
+            continue
+        for annot_ref in annots:
+            try:
+                annot = annot_ref.get_object()
+            except Exception:
+                continue
+            ft  = str(annot.get('/FT', ''))
+            ff  = int(annot.get('/Ff', 0))
+            # Checkbox: /Btn but NOT radio (bit 16 of /Ff not set)
+            if ft != '/Btn' or (ff & (1 << 15)):
+                continue
+            v_obj = annot.get('/V')
+            if v_obj is None:
+                continue
+            v_str = str(v_obj).strip("()")
+            # Convert TextString "/Yes" → NameObject /Yes (and similarly /Off)
+            if hasattr(v_obj, 'get_data'):
+                try:
+                    v_str = v_obj.get_data().decode('utf-8', errors='replace')
+                except Exception:
+                    pass
+            if v_str and v_str.startswith('/'):
+                v_str = v_str  # already has the slash
+            elif not v_str.startswith('/'):
+                v_str = f'/{v_str}'
+            from pypdf.generic import NameObject as _NameObj2
+            annot[_NameObj2('/V')] = _NameObj2(v_str)
+
     # Clear /NeedAppearances so viewers honour the stored /AP streams
     try:
         acroform = writer._root_object['/AcroForm'].get_object()
