@@ -929,6 +929,26 @@ MATRIX_CHECKBOX = {
 }
 
 # ---------------------------------------------------------------------------
+# G11 C-suite gender representation — 11 rows × 5 cols = G1 Check Box 60-114
+# Columns: women(0), men(1), other(2), not applicable(3), choose not to disclose(4)
+# Numbering is irregular (rows 8/10 break sequence), so stored explicitly.
+# ---------------------------------------------------------------------------
+_G11_ROWS = [
+    ('chief executive officer',             [60,  77,  86,  104, 95]),
+    ('chief financial officer',             [61,  76,  85,  103, 94]),
+    ('chief procurement officer',           [62,  75,  84,  102, 93]),
+    ('chief technology officer',            [63,  74,  83,  101, 92]),
+    ('chief marketing officer',             [64,  73,  82,  100, 91]),
+    ('chief operations officer',            [65,  72,  81,  99,  90]),
+    ('chief sustainability officer',        [66,  71,  80,  98,  89]),
+    ('chief legal officer/general counsel', [109, 108, 107, 106, 105]),
+    ('chief human resources officer',       [67,  70,  79,  97,  88]),
+    ('chief compliance officer',            [114, 113, 112, 111, 110]),
+    ('other',                               [68,  69,  78,  96,  87]),
+]
+_G11_COLS = ['women', 'men', 'other', 'not applicable', 'choose not to disclose']
+
+# ---------------------------------------------------------------------------
 # Board composition (G9) — maps (qid, subq) → PDF text field
 # RESP is the numeric value (write only when CHOICE == "Known")
 # Field order confirmed via y-coordinate inspection of template.pdf page 15:
@@ -1339,6 +1359,18 @@ def _fill_pdf(subs):
                 existing = field_values.get(fname, '')
                 field_values[fname] = (existing + '; ' + val) if existing else val
                 filled_qids.add(qid)
+
+        # ── G11 C-SUITE GENDER REPRESENTATION ────────────────────────────────
+        elif qid == 'G11':
+            subq_norm   = _norm(s['subquestion'])
+            choice_norm = _norm(s['choice'])
+            for row_key, nums in _G11_ROWS:
+                if _match(subq_norm, row_key):
+                    col_idx = next((i for i, c in enumerate(_G11_COLS) if _match(choice_norm, c)), -1)
+                    if col_idx >= 0:
+                        field_values[f'G1 Check Box {nums[col_idx]}'] = '/Yes'
+                        filled_qids.add(qid)
+                    break
 
         # ── BOARD COMPOSITION (G9/G9B/G9C/G9D/G9E → G 10 Text Field N) ─────
         elif qid in BOARD_FIELDS:
