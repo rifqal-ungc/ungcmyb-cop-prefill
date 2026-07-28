@@ -1895,7 +1895,14 @@ def debug_field_kids(field_name):
             except Exception as e:
                 result.append({'index': i, 'error': str(e)})
 
-        return jsonify({'field': field_name, 'kid_count': len(kids), 'kids': result})
+        # Also show field's own AP/N on-states (for flat checkboxes with no kids)
+        ap = field.get('/AP', {})
+        if hasattr(ap, 'get_object'): ap = ap.get_object()
+        n_dict = ap.get('/N', {})
+        if hasattr(n_dict, 'get_object'): n_dict = n_dict.get_object()
+        field_on_states = [k for k in (n_dict.keys() if hasattr(n_dict, 'keys') else []) if k != '/Off']
+        return jsonify({'field': field_name, 'kid_count': len(kids), 'kids': result,
+                        'field_v': str(field.get('/V', '')), 'field_on_states': field_on_states})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
