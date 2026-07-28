@@ -1513,64 +1513,72 @@ def _fill_pdf(subs):
             else:
                 parent[_NameObj('/V')] = _NameObj(on_state)
 
-    # Fix /V on checkbox fields — two jobs in one pass:
-    #   1. Coerce any TextString("/Yes") stored by update_page_form_field_values
-    #      to NameObject(/Yes), as required by PDF viewers.
-    #   2. Directly apply field_values entries for checkboxes that
-    #      update_page_form_field_values silently skipped (e.g. G13 Check Box 26-28
-    #      on a page-obj that pypdf fails to match during its per-page scan).
-    # Build a lookup of checkbox names we want to set to a specific value.
+    # Walk the AcroForm /Fields tree (writer-owned objects) to:
+    #   1. Directly set /V+/AS for any checkbox whose name is in field_values
+    #      (bypasses update_page_form_field_values silently skipping certain pages).
+    #   2. Coerce any TextString("/Yes") already stored to NameObject(/Yes).
     _checkbox_overrides = {
         k: (v if v.startswith('/') else f'/{v}')
         for k, v in field_values.items()
         if isinstance(v, str) and (v.startswith('/') or v in ('Yes', 'Off'))
     }
     from pypdf.generic import NameObject as _NameObj2
-    for page in writer.pages:
-        page_obj = page.get_object() if hasattr(page, 'get_object') else page
-        annots_ref = page_obj.get('/Annots')
-        if annots_ref is None:
-            continue
-        annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
-        if not hasattr(annots, '__iter__'):
-            continue
-        for annot_ref in annots:
+
+    def _fix_checkbox_field(field_obj):
+        """Recursively walk AcroForm field dict; fix checkbox /V and /AS."""
+        try:
+            obj = field_obj.get_object() if hasattr(field_obj, 'get_object') else field_obj
+        except Exception:
+            return
+        # Recurse into /Kids first
+        kids_ref = obj.get('/Kids')
+        if kids_ref is not None:
             try:
-                annot = annot_ref.get_object()
+                kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                for kid in kids:
+                    _fix_checkbox_field(kid)
             except Exception:
-                continue
-            ft  = str(annot.get('/FT', ''))
-            ff  = int(annot.get('/Ff', 0))
-            # Checkbox: /Btn but NOT radio (bit 16 of /Ff not set)
-            if ft != '/Btn' or (ff & (1 << 15)):
-                continue
-            # Resolve field name for direct-set override check
-            t_raw = annot.get('/T')
-            if t_raw is not None:
-                try:
-                    fname = t_raw.get_data().decode('utf-8', errors='replace')
-                except Exception:
-                    fname = str(t_raw).strip('()')
-                if fname in _checkbox_overrides:
-                    target = _NameObj2(_checkbox_overrides[fname])
-                    annot[_NameObj2('/V')]  = target
-                    annot[_NameObj2('/AS')] = target
-                    continue
-            # Coerce whatever /V is already set to a NameObject (type safety)
-            v_obj = annot.get('/V')
-            if v_obj is None:
-                continue
-            v_str = str(v_obj).strip("()")
-            if hasattr(v_obj, 'get_data'):
-                try:
-                    v_str = v_obj.get_data().decode('utf-8', errors='replace')
-                except Exception:
-                    pass
-            if v_str and v_str.startswith('/'):
                 pass
-            elif not v_str.startswith('/'):
+        # Only act on checkbox fields (/FT /Btn, not radio)
+        ft = str(obj.get('/FT', ''))
+        ff = int(obj.get('/Ff', 0))
+        if ft != '/Btn' or (ff & (1 << 15)):
+            return
+        # Resolve field name
+        t_raw = obj.get('/T')
+        if t_raw is None:
+            return
+        try:
+            fname = t_raw.get_data().decode('utf-8', errors='replace')
+        except Exception:
+            fname = str(t_raw).strip('()')
+        if fname in _checkbox_overrides:
+            # Authoritative set: apply the desired on/off state
+            target = _NameObj2(_checkbox_overrides[fname])
+            obj[_NameObj2('/V')]  = target
+            obj[_NameObj2('/AS')] = target
+        else:
+            # Type-coerce: ensure /V is NameObject, not TextString
+            v_obj = obj.get('/V')
+            if v_obj is None:
+                return
+            try:
+                v_str = v_obj.get_data().decode('utf-8', errors='replace')
+            except Exception:
+                v_str = str(v_obj).strip('()')
+            if not v_str.startswith('/'):
                 v_str = f'/{v_str}'
-            annot[_NameObj2('/V')] = _NameObj2(v_str)
+            obj[_NameObj2('/V')] = _NameObj2(v_str)
+
+    try:
+        acroform_ref = writer._root_object['/AcroForm']
+        acroform = acroform_ref.get_object() if hasattr(acroform_ref, 'get_object') else acroform_ref
+        fields_ref = acroform.get('/Fields', [])
+        fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
+        for field_ref in fields_list:
+            _fix_checkbox_field(field_ref)
+    except Exception:
+        pass
 
     # Clear /NeedAppearances so viewers honour the stored /AP streams
     try:
