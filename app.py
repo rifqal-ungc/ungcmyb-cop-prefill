@@ -198,13 +198,23 @@ _GOV_ROWS = [
 def _gov_rows(q):
     return [(lab, fld.replace('{q}', q)) for lab, fld in _GOV_ROWS]
 
-# Shared 5-level progress scale (used by E3.1 and HR/L4.1)
+# Shared 5-level progress scale (used by E3.1)
 _PROGRESS_OPTS = [
     'no action taken or planned',
     'early progress – commitments or initial actions taken',
     'some progress – partially implemented or piloted',
     'good progress – largely implemented across operations',
     'fully implemented across the company',
+]
+
+# HR/L4.1 progress monitoring options (p26, left-to-right = kid 0–4)
+# kid 2 = internal only, kid 3 = internal+external — order must match PDF.
+_HRL41_OPTS = [
+    'no monitoring of progress',
+    'review topics on an ad hoc basis',
+    'set annual targets/ goals, track progress over time (internal programmes only)',
+    'set annual targets/ goals, track progress over time (internal and external programmes)',
+    'other',
 ]
 
 # Shared 9-row environmental topic list (used by E1, E3.1, E4)
@@ -409,11 +419,17 @@ MATRIX_RADIO = {
             'L2 Radio Button 8': 'Text Field 25',
         },
     },
-    # HR/L4.1: conditional on HR/L4 — progress on HR/L prevention per topic (8 rows × 5 options)
+    # HR/L4.1: conditional on HR/L4 — progress monitoring per topic (8 rows × 5 options, p26)
+    # Options confirmed from template.pdf p26 text. Kid order: 0=no monitoring, 1=ad hoc,
+    # 2=targets internal only, 3=targets internal+external, 4=other.
+    # choice_map: 2025 unqualified "set annual targets" → kid 3 (internal+external).
     'HR/L4.1': {
-        'options': _PROGRESS_OPTS,
+        'options': _HRL41_OPTS,
         'rows': _hrl_rows('L4.1'),
-        'text_field': None,
+        'text_field': 'L4.1 Text Field ',
+        'choice_map': {
+            'set annual targets/ goals, track progress over time': 3,
+        },
     },
     'HR/L5': {
         'options': [
@@ -1347,7 +1363,10 @@ def _fill_pdf(subs):
                 # Fall back to the last row, mirroring MATRIX_CHECKBOX behaviour.
                 field = q['rows'][-1][1]
             if field:
-                best_i = _best_option(choice, q['options'])
+                # choice_map: explicit 2025→2026 crosswalk (bypasses _best_option ambiguity)
+                cmap = q.get('choice_map', {})
+                mapped_i = next((v for k, v in cmap.items() if _norm(choice) == _norm(k)), None)
+                best_i = mapped_i if mapped_i is not None else _best_option(choice, q['options'])
                 if best_i >= 0:
                     radio_values[field] = best_i
                     filled_qids.add(qid)
