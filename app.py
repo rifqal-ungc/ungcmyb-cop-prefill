@@ -994,13 +994,16 @@ MATRIX_CHECKBOX = {
     'E3.1.2': {
         'rows': _ENV_TOPICS_9,
         'options': [
-            'progress is not tracked',
+            # col_idx=0 → X=345, col_idx=1 → X=457, …, col_idx=4 → X=232
+            # Serpentine starts at 2nd visual column; 'not tracked' is leftmost (col_idx=4)
             'progress is reviewed against goals annually or more frequently',
             'progress is reported internally to the most senior level',
             'progress is reported externally',
             'other',
+            'progress is not tracked',
         ],
         'prefix': 'E3.1.2. Check Box', 'n_rows': 8, 'n_total': 45, 'special_row': 6,
+        'special_col_offset': 1,   # special-row boxes start 1 col to the left of regular col_idx=0
         'text_field': 'E3.1.2 Text Field 10',
     },
     # HR/L2.1: policy attributes per HR/L topic (8 rows × 8 options = 64 boxes)
@@ -1497,7 +1500,12 @@ def _fill_pdf(subs):
                     if col_idx < 0:
                         continue
                     if is_special:
-                        box_num = n_total - col_idx
+                        offset = q.get('special_col_offset', 0)
+                        if offset:
+                            n_cols = n_total // (n_rows + 1)
+                            box_num = n_total - (col_idx + offset) % n_cols
+                        else:
+                            box_num = n_total - col_idx
                     elif col_idx == 0:
                         box_num = 1 + adj_row_idx
                     else:
