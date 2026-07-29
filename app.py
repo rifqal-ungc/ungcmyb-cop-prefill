@@ -837,6 +837,9 @@ _SHARED_V2_QPAGE = {'G13': 18, 'HR/L1': 19}
 
 CONCAT_TEXT_FIELDS = {
     'HR/L1.1': 'HR/L1.1 Text Field 001',
+    # E3.1.1: Excel export strips per-topic subquestion info (all rows have SUBQ=None).
+    # Concatenate all RESP values into the bottom additional-info field so nothing is lost.
+    'E3.1.1': 'E3.1.1 Text Field 9',
 }
 
 # Optional topics in HR/L1.1 (page 20) that also have their own checkboxes.
@@ -1208,9 +1211,8 @@ TEXT_FIELDS = {
     'L2.1A':    'L2.1 Text Field 14',
     # E3.1 additional info text
     'E3.1A':  'E3.1 Text Field 1',
-    # E3.1.1 target descriptions — concatenate all into first text field
-    'E3.1.1': 'E3.1.1 Text Field 1',
-    'E3.1.1A': 'E3.1.1 Text Field 1',
+    # E3.1.1: additional-info variant only (multi-RESP rows handled by CONCAT_TEXT_FIELDS)
+    'E3.1.1A': 'E3.1.1 Text Field 9',
     # E5 (stays as E5 in 2026; ID_REMAP shifted old E5→E7, E7→E8)
     # Our existing TEXT_FIELDS['E5'] = 'E5 Text Field 7' is unreachable after ID_REMAP.
     # 'E7A': 'E5 Text Field 7' would handle the remapped path but E7 is now a checkbox Q.
