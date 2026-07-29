@@ -716,30 +716,39 @@ CHECKBOX_MAP = {
         },
         'text_field': 'G13 Text Field 13',
     },
-    # HR/L2.2: single checkbox — whether policy references right to form/join a trade union
+    # HR/L2.2: policy on freedom of association & collective bargaining (6 options, p23)
+    # Field order confirmed via y-coord dump: L2.2 Check Box 1 → 2.2 Check Box 44-48
     'HR/L2.2': {
         'fields': {
-            'reference the respect for the right': 'L2.2 Check Box 1',
+            'reference the respect for the right of all workers':                    'L2.2 Check Box 1',
+            'prohibit any acts of interference in trade unions':                     '2.2 Check Box 44',
+            'facilitate collective bargaining':                                       '2.2 Check Box 45',
+            'provide trade union representatives with the information':               '2.2 Check Box 46',
+            'reference the respect for the right of workers to submit grievances':   '2.2 Check Box 47',
+            'we do have a policy on freedom of association or collective bargaining': '2.2 Check Box 48',
         },
         'text_field': 'L2.2 Text Field 15',
     },
     'L2.2': {
         'fields': {
-            'reference the respect for the right': 'L2.2 Check Box 1',
+            'reference the respect for the right of all workers':                    'L2.2 Check Box 1',
+            'prohibit any acts of interference in trade unions':                     '2.2 Check Box 44',
+            'facilitate collective bargaining':                                       '2.2 Check Box 45',
+            'provide trade union representatives with the information':               '2.2 Check Box 46',
+            'reference the respect for the right of workers to submit grievances':   '2.2 Check Box 47',
+            'we do have a policy on freedom of association or collective bargaining': '2.2 Check Box 48',
         },
         'text_field': 'L2.2 Text Field 15',
     },
-    # HR/L2.3: single checkbox — no collective bargaining agreement in place
+    # HR/L2.3 (2025): "Do existing collective bargaining agreements provide more favourable conditions?"
+    # HR/L2.3 (2026): wages policy details — completely different question, no 2025→2026 crosswalk.
+    # L2.3 Check Box 1 = "equal pay commitment" — must NOT be ticked from 2025 CBA data.
     'HR/L2.3': {
-        'fields': {
-            'there is no existing collective bargaining': 'L2.3 Check Box 1',
-        },
+        'fields': {},
         'text_field': 'L2.3 Text Field 15',
     },
     'L2.3': {
-        'fields': {
-            'there is no existing collective bargaining': 'L2.3 Check Box 1',
-        },
+        'fields': {},
         'text_field': 'L2.3 Text Field 15',
     },
     # E6.1: Scope 3 categories (17 sequential checkboxes in PDF order)
