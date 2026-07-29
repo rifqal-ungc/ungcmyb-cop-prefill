@@ -1693,30 +1693,34 @@ def test_g13_checkboxes():
 
 @app.route('/api/debug/test-hrl1-checkboxes', methods=['GET'])
 def test_hrl1_checkboxes():
-    """Diagnostic: tick every OTHER HR/L1 checkbox (alternating) to map field→option visually.
-    Ticked: options 1,3,5,7,9,11,13,15,17,19,21 = boxes 26,28,30,32,34,36,38,40,42,v2-63,44
-    Unticked: options 2,4,6,8,10,12,14,16,18,20,22 = boxes 27,29,31,33,35,37,39,41,v2-62,43,45
+    """Diagnostic: tick every OTHER HR/L1 checkbox (EVEN options) to map remaining fields.
+    Updated mapping from prior diagnostic:
+      box38=Land(14), box39=JustTransition(13), box40=Digital(16), box41=RawMaterial(15),
+      box42=ProductEndUser(18), v2-62=FreedomExpression(17), v2-63=NoAssessment(22),
+      box43=EmergingTech(19), box44=HR/L1.1 field (skip!), box45=Conflict-sensitive?(20)
+    Ticked (EVEN options 2,4,6,8,10,12,14,16,18,20,22):
+      boxes 27,29,31,33,35,37 (left col) + 38,40,42 (right col) + v2-63 + box45
+    Unticked (ODD options 1,3,...):
+      boxes 26,28,30,32,34,36 + 39,41,v2-62,43,44,46
     """
     try:
         from pypdf.generic import NameObject as _N2
         reader = PdfReader(PDF_PATH)
         writer = PdfWriter()
         writer.append(reader)
-        # Alternating: ODD options ticked (1-based index)
-        flat_odd  = [26, 28, 30, 32, 34, 36, 38, 40, 42]   # options 1,3,5,7,9,11,13,15,17
-        flat_even = [27, 29, 31, 33, 35, 37, 39, 41]        # options 2,4,6,8,10,12,14,16
-        # option 18 = v2 62 (EVEN → unticked), option 19 = v2 63 (ODD → ticked)
-        # option 20 = box 43 (EVEN → unticked), option 21 = box 44 (ODD → ticked), option 22 = box 45 (EVEN → unticked)
+        # EVEN options ticked
+        flat_yes = [27, 29, 31, 33, 35, 37,   # left col: options 2,4,6,8,10,12
+                    38, 40, 42]                 # right col: options 14,16,18
+        flat_off = [26, 28, 30, 32, 34, 36,    # left col: options 1,3,5,7,9,11
+                    39, 41, 43, 44, 46]         # right col: options 13,15,19 + HR/L1.1 skip + Other(21?)
         target_fields = {}
-        for n in flat_odd:
+        for n in flat_yes:
             target_fields[f'G13 Check Box {n}'] = '/Yes'
-        for n in flat_even:
+        for n in flat_off:
             target_fields[f'G13 Check Box {n}'] = '/Off'
-        target_fields['G13 Check Box v2 62'] = '/Off'
-        target_fields['G13 Check Box v2 63'] = '/Yes'
-        target_fields['G13 Check Box 43'] = '/Off'
-        target_fields['G13 Check Box 44'] = '/Yes'
-        target_fields['G13 Check Box 45'] = '/Off'
+        target_fields['G13 Check Box v2 62'] = '/Off'   # Freedom of expression (17, odd)
+        target_fields['G13 Check Box v2 63'] = '/Yes'   # No assessment (22, even)
+        target_fields['G13 Check Box 45'] = '/Yes'      # Conflict-sensitive? (20, even) — testing
 
         for page in writer.pages:
             on_fields = {k: v for k, v in target_fields.items() if v == '/Yes'}
