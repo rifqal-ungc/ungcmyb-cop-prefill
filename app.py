@@ -1691,6 +1691,106 @@ def test_g13_checkboxes():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/test-hrl1-checkboxes', methods=['GET'])
+def test_hrl1_checkboxes():
+    """Diagnostic: tick every OTHER HR/L1 checkbox (alternating) to map field→option visually.
+    Ticked: options 1,3,5,7,9,11,13,15,17,19,21 = boxes 26,28,30,32,34,36,38,40,42,v2-63,44
+    Unticked: options 2,4,6,8,10,12,14,16,18,20,22 = boxes 27,29,31,33,35,37,39,41,v2-62,43,45
+    """
+    try:
+        from pypdf.generic import NameObject as _N2
+        reader = PdfReader(PDF_PATH)
+        writer = PdfWriter()
+        writer.append(reader)
+        # Alternating: ODD options ticked (1-based index)
+        flat_odd  = [26, 28, 30, 32, 34, 36, 38, 40, 42]   # options 1,3,5,7,9,11,13,15,17
+        flat_even = [27, 29, 31, 33, 35, 37, 39, 41]        # options 2,4,6,8,10,12,14,16
+        # option 18 = v2 62 (EVEN → unticked), option 19 = v2 63 (ODD → ticked)
+        # option 20 = box 43 (EVEN → unticked), option 21 = box 44 (ODD → ticked), option 22 = box 45 (EVEN → unticked)
+        target_fields = {}
+        for n in flat_odd:
+            target_fields[f'G13 Check Box {n}'] = '/Yes'
+        for n in flat_even:
+            target_fields[f'G13 Check Box {n}'] = '/Off'
+        target_fields['G13 Check Box v2 62'] = '/Off'
+        target_fields['G13 Check Box v2 63'] = '/Yes'
+        target_fields['G13 Check Box 43'] = '/Off'
+        target_fields['G13 Check Box 44'] = '/Yes'
+        target_fields['G13 Check Box 45'] = '/Off'
+
+        for page in writer.pages:
+            on_fields = {k: v for k, v in target_fields.items() if v == '/Yes'}
+            if on_fields:
+                writer.update_page_form_field_values(page, on_fields, auto_regenerate=True)
+
+        def _set_kids_as(kids_ref, val):
+            try:
+                kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                for kid_ref in kids:
+                    try:
+                        kid = kid_ref.get_object() if hasattr(kid_ref, 'get_object') else kid_ref
+                        if str(kid.get('/Subtype', '')) == '/Widget':
+                            kid[_N2('/AS')] = val
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        def _fix(field_ref):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            kids_ref = obj.get('/Kids')
+            ft = str(obj.get('/FT', ''))
+            ff = int(obj.get('/Ff', 0))
+            if ft != '/Btn' or (ff & (1 << 15)):
+                if kids_ref is not None:
+                    try:
+                        kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                        for k in kids: _fix(k)
+                    except Exception: pass
+                return
+            t_raw = obj.get('/T')
+            if t_raw is None:
+                if kids_ref is not None:
+                    try:
+                        kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                        for k in kids: _fix(k)
+                    except Exception: pass
+                return
+            try: fname = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception: fname = str(t_raw).strip('()')
+            if fname in target_fields:
+                val = _N2(target_fields[fname])
+                obj[_N2('/V')] = val
+                if kids_ref is not None:
+                    _set_kids_as(kids_ref, val)
+                else:
+                    obj[_N2('/AS')] = val
+            elif kids_ref is not None:
+                try:
+                    kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                    for k in kids: _fix(k)
+                except Exception: pass
+
+        try:
+            acroform_ref = writer._root_object['/AcroForm']
+            acroform = acroform_ref.get_object() if hasattr(acroform_ref, 'get_object') else acroform_ref
+            fields_ref = acroform.get('/Fields', [])
+            fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
+            for f in fields_list: _fix(f)
+        except Exception: pass
+
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        return Response(buf.read(), mimetype='application/pdf',
+            headers={'Content-Disposition': 'attachment; filename="HRL1_diagnostic.pdf"'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/companies', methods=['GET', 'OPTIONS'])
 def companies():
     if request.method == 'OPTIONS':
