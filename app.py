@@ -1795,6 +1795,74 @@ def test_hrl1_checkboxes():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/field-coords', methods=['GET'])
+def field_coords():
+    """Dump all G13 Check Box field names + Rect coordinates sorted by position on page."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        fields = []
+
+        def walk(field_ref, parent_page=None):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            t_raw = obj.get('/T')
+            rect = obj.get('/Rect')
+            p_ref = obj.get('/P')
+            page_num = None
+            if p_ref is not None:
+                try:
+                    p_obj = p_ref.get_object() if hasattr(p_ref, 'get_object') else p_ref
+                    for i, page in enumerate(reader.pages):
+                        if page.indirect_reference and page.indirect_reference == p_ref.indirect_reference:
+                            page_num = i + 1
+                            break
+                except Exception:
+                    pass
+            name = None
+            if t_raw is not None:
+                try:
+                    name = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception:
+                    name = str(t_raw).strip('()')
+            if name and ('G13 Check Box' in name or 'HR/L' in name):
+                rect_vals = None
+                if rect is not None:
+                    try:
+                        rv = rect.get_object() if hasattr(rect, 'get_object') else rect
+                        rect_vals = [float(rv[0]), float(rv[1]), float(rv[2]), float(rv[3])]
+                    except Exception:
+                        pass
+                fields.append({'name': name, 'page': page_num, 'rect': rect_vals})
+            kids = obj.get('/Kids')
+            if kids is not None:
+                try:
+                    kids_obj = kids.get_object() if hasattr(kids, 'get_object') else kids
+                    for k in kids_obj:
+                        walk(k)
+                except Exception:
+                    pass
+
+        acroform = reader.trailer['/Root'].get('/AcroForm')
+        if acroform:
+            acroform = acroform.get_object() if hasattr(acroform, 'get_object') else acroform
+            fl = acroform.get('/Fields', [])
+            fl = fl.get_object() if hasattr(fl, 'get_object') else fl
+            for f in fl:
+                walk(f)
+
+        # Sort by page, then by y1 descending (top of page = high y in PDF), then x1
+        fields.sort(key=lambda f: (
+            f['page'] or 999,
+            -(f['rect'][1] if f['rect'] else 0),
+            f['rect'][0] if f['rect'] else 0
+        ))
+        return jsonify(fields)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/companies', methods=['GET', 'OPTIONS'])
 def companies():
     if request.method == 'OPTIONS':
