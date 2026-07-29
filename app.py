@@ -72,7 +72,7 @@ def _match(a, b):
 # ---------------------------------------------------------------------------
 ID_REMAP = {
     'G12': 'G13', 'G13': 'G14',
-    'E5': 'E7', 'E7': 'E8', 'E10': 'E11',
+    'E5': 'E7', 'E7': 'E8', 'E8': 'E9', 'E10': 'E11',
     # HR/L section: Excel may store without the "HR/" prefix
     'L2': 'HR/L2', 'L4.1': 'HR/L4.1', 'L5': 'HR/L5',
     'L6': 'HR/L6', 'L7': 'HR/L7',
@@ -596,19 +596,10 @@ CHECKBOX_SEQ = {
         'text_field': 'G1 Text Field 5',
     },
     # ── Environment ─────────────────────────────────────────────────────────
-    'E8': {
-        'options': [
-            'yes, and it includes physical risk assessments',
-            'yes, and it includes transition risk assessments',
-            'yes, and it includes a physical climate risk scenario analysis',
-            'yes, and it includes actions to increase adaptation and resilience in the communities in which we operate',
-            'no, but we plan to within the next two years',
-            'no (please provide additional information)',
-        ],
-        'prefix': 'E8', 'start': 1,   # field names are "E8 v2 Text Field" + "E8 Check Box N"
-        'text_field': 'E8 Text Field 1',
-    },
+    # E8 (climate adaptation) moved to CHECKBOX_MAP — box numbering is non-sequential by Y.
     'E9': {
+        # 2026 E9 = fossil fuel phase-out targets (was 2025 E8, routed here via ID_REMAP).
+        # PDF fields: E9 v2 Check Box 13-19 (page 42, sequential top→bottom).
         'options': [
             'yes, we have set targets to phase out fossil fuel-based materials',
             'yes, we have set targets for investment in non-fossil fuel emitting activities',
@@ -618,8 +609,8 @@ CHECKBOX_SEQ = {
             'no, but we plan to within the next two years',
             'no (please provide additional information)',
         ],
-        'prefix': 'E9 Check Box', 'start': 1,
-        'text_field': 'E9 Text Field 1',
+        'prefix': 'E9 v2 Check Box', 'start': 13,
+        'text_field': 'E8 Text Field 1',
     },
     # E11 removed from CHECKBOX_SEQ — it uses radio buttons, handled in BINARY_SELECT below
     'E16': {
@@ -802,6 +793,20 @@ CHECKBOX_MAP = {
             'other - downstream':                              'E6.1 Check Box 17',
         },
         'text_field': 'E6.1 Text Field 1',
+    },
+    # E8: climate adaptation plan (was 2025 E7, routed here via ID_REMAP).
+    # PDF fields: E7 Check Box 6-11 (page 41); numbering is non-sequential by visual order.
+    # Visual top→bottom: Box 10, 9, 11, 8, 7, 6.  Additional info: E8 v2 Text Field 14.
+    'E8': {
+        'fields': {
+            'yes, and it includes physical risk assessments':                                                                'E7 Check Box 10',
+            'yes, and it includes transition risk assessments':                                                              'E7 Check Box 9',
+            'yes, and it includes a physical climate risk scenario analysis':                                                'E7 Check Box 11',
+            'yes, and it includes actions to increase adaptation and resilience in the communities in which we operate':     'E7 Check Box 8',
+            'no, but we plan to within the next two years':                                                                 'E7 Check Box 7',
+            'no (please provide additional information)':                                                                   'E7 Check Box 6',
+        },
+        'text_field': 'E8 v2 Text Field 14',
     },
     'AC1.1': {
         # /api/fields confirms AC1.1 Check Box 1-6 exist.
@@ -1154,7 +1159,7 @@ TEXT_FIELDS = {
     'G10': 'G 11 Text Field 17',   # 2025 G10 (women in management %) → narrow % box at y=433
     # G11 intentionally omitted: 2025 G11 is C-suite Women/Men choice rows, not a text field
     'E5': 'E5 Text Field 7',
-    'E8': 'E8 Text Field 1',
+    'E8': 'E8 v2 Text Field 14',   # climate adaptation additional info (E7 Check Box 6-11)
     'E13': 'E13 Text Field 5',
     'AC7': 'AC7 Text Field 20',
     # "A" suffix variants — same text field, different question_id in Excel
