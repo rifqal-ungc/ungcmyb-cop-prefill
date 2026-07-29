@@ -612,7 +612,7 @@ CHECKBOX_SEQ = {
         'prefix': 'E9 v2 Check Box', 'start': 13,
         'text_field': 'E8 Text Field 1',
     },
-    # E11 removed from CHECKBOX_SEQ — it uses radio buttons, handled in BINARY_SELECT below
+    # E11 handled in CHECKBOX_MAP (E10 Check Box 6-14, page 43)
     'E16': {
         'options': [
             'has a formal circular economy policy or commitment',
@@ -794,6 +794,23 @@ CHECKBOX_MAP = {
         },
         'text_field': 'E6.1 Text Field 1',
     },
+    # E11: material environmental topics (was 2025 E10, routed here via ID_REMAP).
+    # PDF fields: E10 Check Box 6-14 (page 43, non-sequential by visual order).
+    # Visual top→bottom: Box 14, 13, 12, 9, 11, 10, 6, 7, 8.
+    # 'Waste' (2025) prefix-matches 'Waste management' (2026) bidirectionally.
+    'E11': {
+        'fields': {
+            'climate change':               'E10 Check Box 14',
+            'oceans':                       'E10 Check Box 13',
+            'energy & resource use':        'E10 Check Box 12',
+            'waste management':             'E10 Check Box 9',
+            'water':                        'E10 Check Box 11',
+            'nature and biodiversity':      'E10 Check Box 10',
+            'air pollution':                'E10 Check Box 6',
+            'circularity':                  'E10 Check Box 7',
+            'none':                         'E10 Check Box 8',
+        },
+    },
     # E8: climate adaptation plan (was 2025 E7, routed here via ID_REMAP).
     # PDF fields: E7 Check Box 6-11 (page 41); numbering is non-sequential by visual order.
     # Visual top→bottom: Box 10, 9, 11, 8, 7, 6.  Additional info: E8 v2 Text Field 14.
@@ -883,14 +900,7 @@ CONCAT_CHECKBOX_MAP = {
 }
 
 BINARY_SELECT = {
-    'E11': {
-        'rows': [
-            ('climate change',          'E11 Radio Button 1'),
-            ('water',                   'E11 Radio Button 2'),
-            ('nature and biodiversity', 'E11 Radio Button 3'),
-            ('air pollution',           'E11 Radio Button 4'),
-        ],
-    },
+    # (empty — E11 moved to CHECKBOX_MAP; kept for future binary-select questions)
 }
 
 # ---------------------------------------------------------------------------
@@ -1236,8 +1246,8 @@ TEXT_FIELDS = {
     # E5 (stays as E5 in 2026; ID_REMAP shifted old E5→E7, E7→E8)
     # Our existing TEXT_FIELDS['E5'] = 'E5 Text Field 7' is unreachable after ID_REMAP.
     # 'E7A': 'E5 Text Field 7' would handle the remapped path but E7 is now a checkbox Q.
-    # E11 additional text fields (GHG measurements per topic)
-    'E11A': 'E11 Text Field 1',
+    # E11A: additional info for material topics (E10 Text Field 1 on page 43)
+    'E11A': 'E10 Text Field 1',
     # Additional IDs seen in some submissions
     'E1AAA':   'E1 Text Field 10',      # E1 "provide additional information" text box (bottom of page 30)
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
