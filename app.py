@@ -668,9 +668,9 @@ CHECKBOX_MAP = {
             'taskforce on nature-related financial disclosures (tnfd)': 'G13 Check Box 23',
             'taskforce on inequality and social-related financial disclosures (tisfd)': 'G13 Check Box 24',
             'cdp (formerly known as carbon disclosure project)':        'G13 Check Box 25',
-            'science based targets initiative (sbti)':                  'G13 Check Box 26',
-            'other voluntary frameworks':                               'G13 Check Box 27',
-            'no sustainability reporting according to any frameworks nor regulations outside of this communication on progress': 'G13 Check Box 28',
+            'science based targets initiative (sbti)':                  'G13 Check Box v2 59',
+            'other voluntary frameworks':                               'G13 Check Box v2 60',
+            'no sustainability reporting according to any frameworks nor regulations outside of this communication on progress': 'G13 Check Box v2 61',
         },
         'text_field': 'G13 Text Field 12',
     },
@@ -1524,14 +1524,74 @@ def _fill_pdf(subs):
     }
     from pypdf.generic import NameObject as _NameObj2
 
+    def _set_as_on_kids(kids_ref, target):
+        """Set /AS=target on all widget-annotation children of a field."""
+        try:
+            kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+            for kid_ref in kids:
+                try:
+                    kid = kid_ref.get_object() if hasattr(kid_ref, 'get_object') else kid_ref
+                    if str(kid.get('/Subtype', '')) == '/Widget':
+                        kid[_NameObj2('/AS')] = target
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     def _fix_checkbox_field(field_obj):
-        """Recursively walk AcroForm field dict; fix checkbox /V and /AS."""
+        """Recursively walk AcroForm field dict; fix checkbox /V and /AS.
+
+        Handles both flat checkboxes (annotation IS the field) and hierarchical
+        ones (parent holds /T+/V, child widgets hold /AS+/AP, e.g. G13 Check Box v2 59-61).
+        """
         try:
             obj = field_obj.get_object() if hasattr(field_obj, 'get_object') else field_obj
         except Exception:
             return
-        # Recurse into /Kids first
+        # Only act on checkbox fields (/FT /Btn, not radio)
+        ft = str(obj.get('/FT', ''))
+        ff = int(obj.get('/Ff', 0))
+        if ft != '/Btn' or (ff & (1 << 15)):
+            # Not a checkbox at this level — recurse into /Kids for field-tree traversal
+            kids_ref = obj.get('/Kids')
+            if kids_ref is not None:
+                try:
+                    kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                    for kid in kids:
+                        _fix_checkbox_field(kid)
+                except Exception:
+                    pass
+            return
+        # Resolve field name (/T may be on a parent-only node or on a flat widget)
+        t_raw = obj.get('/T')
         kids_ref = obj.get('/Kids')
+        if t_raw is not None:
+            try:
+                fname = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception:
+                fname = str(t_raw).strip('()')
+            if fname in _checkbox_overrides:
+                target = _NameObj2(_checkbox_overrides[fname])
+                obj[_NameObj2('/V')] = target
+                if kids_ref is not None:
+                    # Hierarchical field: set /AS on each child widget
+                    _set_as_on_kids(kids_ref, target)
+                else:
+                    # Flat field: /AS lives on the same object
+                    obj[_NameObj2('/AS')] = target
+                return
+            else:
+                # Type-coerce /V to NameObject
+                v_obj = obj.get('/V')
+                if v_obj is not None:
+                    try:
+                        v_str = v_obj.get_data().decode('utf-8', errors='replace')
+                    except Exception:
+                        v_str = str(v_obj).strip('()')
+                    if not v_str.startswith('/'):
+                        v_str = f'/{v_str}'
+                    obj[_NameObj2('/V')] = _NameObj2(v_str)
+        # Recurse into /Kids (field-tree nodes that aren't yet identified as checkbox parents)
         if kids_ref is not None:
             try:
                 kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
@@ -1539,36 +1599,6 @@ def _fill_pdf(subs):
                     _fix_checkbox_field(kid)
             except Exception:
                 pass
-        # Only act on checkbox fields (/FT /Btn, not radio)
-        ft = str(obj.get('/FT', ''))
-        ff = int(obj.get('/Ff', 0))
-        if ft != '/Btn' or (ff & (1 << 15)):
-            return
-        # Resolve field name
-        t_raw = obj.get('/T')
-        if t_raw is None:
-            return
-        try:
-            fname = t_raw.get_data().decode('utf-8', errors='replace')
-        except Exception:
-            fname = str(t_raw).strip('()')
-        if fname in _checkbox_overrides:
-            # Authoritative set: apply the desired on/off state
-            target = _NameObj2(_checkbox_overrides[fname])
-            obj[_NameObj2('/V')]  = target
-            obj[_NameObj2('/AS')] = target
-        else:
-            # Type-coerce: ensure /V is NameObject, not TextString
-            v_obj = obj.get('/V')
-            if v_obj is None:
-                return
-            try:
-                v_str = v_obj.get_data().decode('utf-8', errors='replace')
-            except Exception:
-                v_str = str(v_obj).strip('()')
-            if not v_str.startswith('/'):
-                v_str = f'/{v_str}'
-            obj[_NameObj2('/V')] = _NameObj2(v_str)
 
     try:
         acroform_ref = writer._root_object['/AcroForm']
@@ -1617,6 +1647,7 @@ def test_g13_checkboxes():
         writer = PdfWriter()
         writer.append(reader)
         target_fields = {f'G13 Check Box {n}': '/Yes' for n in range(14, 29)}
+        target_fields.update({f'G13 Check Box v2 {n}': '/Yes' for n in (59, 60, 61)})
         # Drive auto_regenerate via per-page scan (works for boxes on page-obj 192)
         for page in writer.pages:
             writer.update_page_form_field_values(page, target_fields, auto_regenerate=True)
