@@ -504,15 +504,9 @@ SINGLE_RADIO = {
         'text_field': 'G14 Text Field 12',
     },
     # ── Environment ─────────────────────────────────────────────────────────
-    'E6': {
-        # PDF confirmed 2 kids only — "partially measured" and "measured total" both map to index 1
-        'options': [
-            'we did not measure scope 3 emissions',
-            'yes',
-        ],
-        'field': 'E6 Radio Button 1',
-        'text_field': 'E6 Text Field 1',
-    },
+    # E6 is handled by a custom branch (not SINGLE_RADIO) because "Yes, measured total"
+    # fills a text field (E5 Text Field 23) with no radio, while "Yes, partially measured"
+    # selects kid 0 and "We did not measure" selects kid 1.
     'E14': {
         'options': [
             'no plan yet',
@@ -1564,7 +1558,23 @@ def _fill_pdf(subs):
                     field_values[na_radio] = '/0'
                     filled_qids.add(qid)
 
-        # ── GHG SCOPE EMISSIONS (E5.1) ────────────────────────────────────
+        # ── GHG SCOPE 3 EMISSIONS (E6) ────────────────────────────────────
+        # E6 radio: kid 0 = "Yes, partially measured", kid 1 = "We did not measure"
+        # "Yes, measured total" fills E5 Text Field 23 (no radio selection).
+        # choice='yes' after _remap('Known'); also handle partial/no-measure.
+        elif qid == 'E6':
+            if _match(choice, 'yes') and response:
+                v = response
+                field_values['E5 Text Field 23'] = str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
+                filled_qids.add(qid)
+            elif _match(choice, 'yes, partially'):
+                radio_values['E6 Radio Button 1'] = 0
+                filled_qids.add(qid)
+            elif _match(choice, 'we did not measure'):
+                radio_values['E6 Radio Button 1'] = 1
+                filled_qids.add(qid)
+
+        # ── GHG SCOPE 1/2 EMISSIONS (E5.1) ───────────────────────────────
         elif qid == 'E5.1':
             scope_norm = _norm(s['subquestion'])
             sf = GHG_SCOPE_FIELDS.get(scope_norm)
@@ -1572,7 +1582,8 @@ def _fill_pdf(subs):
                 if _match(choice, 'we did not measure'):
                     radio_values[sf['no_measure_radio']] = 0
                     filled_qids.add(qid)
-                elif _match(choice, 'known') and response:
+                elif _match(choice, 'yes') and response:
+                    # 'Known' remaps to 'yes' via _CREMAP
                     v = response
                     field_values[sf['text_field']] = str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
                     filled_qids.add(qid)
