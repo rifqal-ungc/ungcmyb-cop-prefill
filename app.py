@@ -689,6 +689,7 @@ CHECKBOX_MAP = {
             "children's rights beyond child labour":                             'G13 Check Box 35',
             'rights of vulnerable groups':                                       'G13 Check Box 36',
             'right to a clean, healthy and sustainable environment':             'G13 Check Box v2 62',
+            'right to clean and healthy environment':                            'G13 Check Box v2 62',
             # Right column (options 13-22)
             'just transition':                                                   'G13 Check Box 37',
             'land rights and rights of indigenous peoples':                      'G13 Check Box 38',
@@ -698,7 +699,9 @@ CHECKBOX_MAP = {
             'product and service end-user rights':                               'G13 Check Box 42',
             'emerging technologies and responsible adoption of artificial intelligence': 'G13 Check Box v2 59',
             'conflict-sensitive due diligence':                                  'G13 Check Box v2 60',
+            'security arrangements':                                             'G13 Check Box v2 60',
             'other human/labour rights topics identified as material':           'G13 Check Box v2 61',
+            'other':                                                             'G13 Check Box v2 61',
             'no informal or formal human/labour rights assessment conducted':    'G13 Check Box v2 63',
         },
         'text_field': 'HR/L1.1 Text Field 001',
