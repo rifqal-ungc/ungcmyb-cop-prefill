@@ -1333,6 +1333,10 @@ def _fill_pdf(subs):
                 if _match(subq, label):
                     field = fname
                     break
+            if field is None and q.get('row_text_fields'):
+                # Unknown subquestion (e.g. an HR/L1.1-selected topic in HR/L2 row 8).
+                # Fall back to the last row, mirroring MATRIX_CHECKBOX behaviour.
+                field = q['rows'][-1][1]
             if field:
                 best_i = _best_option(choice, q['options'])
                 if best_i >= 0:
