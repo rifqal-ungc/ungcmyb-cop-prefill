@@ -788,6 +788,29 @@ CONCAT_TEXT_FIELDS = {
     'HR/L1.1': 'HR/L1.1 Text Field 001',
 }
 
+# Optional topics in HR/L1.1 (page 20) that also have their own checkboxes.
+# Required topics (freedom of association, child labour, etc.) are NOT listed here
+# because they don't appear as checkboxes on page 20.
+CONCAT_CHECKBOX_MAP = {
+    'HR/L1.1': {
+        'working hours':                                                              'G13 Check Box 43',
+        'mental health and employee wellbeing':                                       'G13 Check Box 44',
+        "children's rights beyond child labour":                                      'G13 Check Box 45',
+        "children's rights (beyond child labour)":                                    'G13 Check Box 45',
+        'rights of vulnerable groups':                                                'G13 Check Box 46',
+        'right to a clean, healthy and sustainable environment':                      'G13 Check Box 47',
+        'just transition':                                                            'G13 Check Box 48',
+        'land rights and rights of indigenous peoples':                               'G13 Check Box 49',
+        'raw material sourcing':                                                      'G13 Check Box 50',
+        'digital security, privacy, and data protection':                             'G13 Check Box 51',
+        'freedom of expression and access to information':                            'G13 Check Box 52',
+        'product and service end-user rights':                                        'G13 Check Box 53',
+        'emerging technologies and responsible adoption of artificial intelligence':   'G13 Check Box 54',
+        'conflict-sensitive due diligence':                                           'G13 Check Box 55',
+        'none':                                                                       'G13 Check Box 59',
+    },
+}
+
 BINARY_SELECT = {
     'E11': {
         'rows': [
@@ -1402,6 +1425,11 @@ def _fill_pdf(subs):
                 existing = field_values.get(fname, '')
                 field_values[fname] = (existing + '; ' + val) if existing else val
                 filled_qids.add(qid)
+            if qid in CONCAT_CHECKBOX_MAP:
+                for opt_norm, cbox in CONCAT_CHECKBOX_MAP[qid].items():
+                    if _match(choice, opt_norm):
+                        field_values[cbox] = '/Yes'
+                        break
 
         # ── G11 C-SUITE GENDER REPRESENTATION ────────────────────────────────
         elif qid == 'G11':
