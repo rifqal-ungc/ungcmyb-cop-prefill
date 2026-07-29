@@ -1795,70 +1795,84 @@ def test_hrl1_checkboxes():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/debug/field-coords', methods=['GET'])
-def field_coords():
-    """Dump all G13 Check Box field names + Rect coordinates sorted by position on page."""
+@app.route('/api/debug/tick-box/<path:box_name>', methods=['GET'])
+def tick_single_box(box_name):
+    """Diagnostic: tick ONLY the named G13 Check Box (all others off). E.g. /api/debug/tick-box/G13 Check Box 45"""
     try:
+        from pypdf.generic import NameObject as _N2
         reader = PdfReader(PDF_PATH)
-        fields = []
+        writer = PdfWriter()
+        writer.append(reader)
+        target = {box_name: '/Yes'}
 
-        def walk(field_ref, parent_page=None):
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, target, auto_regenerate=True)
+
+        def _set_kids_as(kids_ref, val):
+            try:
+                kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                for kid_ref in kids:
+                    try:
+                        kid = kid_ref.get_object() if hasattr(kid_ref, 'get_object') else kid_ref
+                        if str(kid.get('/Subtype', '')) == '/Widget':
+                            kid[_N2('/AS')] = val
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        def _fix(field_ref):
             try:
                 obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
             except Exception:
                 return
-            t_raw = obj.get('/T')
-            rect = obj.get('/Rect')
-            p_ref = obj.get('/P')
-            page_num = None
-            if p_ref is not None:
-                try:
-                    p_obj = p_ref.get_object() if hasattr(p_ref, 'get_object') else p_ref
-                    for i, page in enumerate(reader.pages):
-                        if page.indirect_reference and page.indirect_reference == p_ref.indirect_reference:
-                            page_num = i + 1
-                            break
-                except Exception:
-                    pass
-            name = None
-            if t_raw is not None:
-                try:
-                    name = t_raw.get_data().decode('utf-8', errors='replace')
-                except Exception:
-                    name = str(t_raw).strip('()')
-            if name and ('G13 Check Box' in name or 'HR/L' in name):
-                rect_vals = None
-                if rect is not None:
+            kids_ref = obj.get('/Kids')
+            ft = str(obj.get('/FT', ''))
+            ff = int(obj.get('/Ff', 0))
+            if ft != '/Btn' or (ff & (1 << 15)):
+                if kids_ref is not None:
                     try:
-                        rv = rect.get_object() if hasattr(rect, 'get_object') else rect
-                        rect_vals = [float(rv[0]), float(rv[1]), float(rv[2]), float(rv[3])]
-                    except Exception:
-                        pass
-                fields.append({'name': name, 'page': page_num, 'rect': rect_vals})
-            kids = obj.get('/Kids')
-            if kids is not None:
+                        kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                        for k in kids: _fix(k)
+                    except Exception: pass
+                return
+            t_raw = obj.get('/T')
+            if t_raw is None:
+                if kids_ref is not None:
+                    try:
+                        kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                        for k in kids: _fix(k)
+                    except Exception: pass
+                return
+            try: fname = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception: fname = str(t_raw).strip('()')
+            if fname == box_name:
+                val = _N2('/Yes')
+                obj[_N2('/V')] = val
+                if kids_ref is not None:
+                    _set_kids_as(kids_ref, val)
+                else:
+                    obj[_N2('/AS')] = val
+            elif kids_ref is not None:
                 try:
-                    kids_obj = kids.get_object() if hasattr(kids, 'get_object') else kids
-                    for k in kids_obj:
-                        walk(k)
-                except Exception:
-                    pass
+                    kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                    for k in kids: _fix(k)
+                except Exception: pass
 
-        acroform = reader.trailer['/Root'].get('/AcroForm')
-        if acroform:
-            acroform = acroform.get_object() if hasattr(acroform, 'get_object') else acroform
-            fl = acroform.get('/Fields', [])
-            fl = fl.get_object() if hasattr(fl, 'get_object') else fl
-            for f in fl:
-                walk(f)
+        try:
+            acroform_ref = writer._root_object['/AcroForm']
+            acroform = acroform_ref.get_object() if hasattr(acroform_ref, 'get_object') else acroform_ref
+            fields_ref = acroform.get('/Fields', [])
+            fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
+            for f in fields_list: _fix(f)
+        except Exception: pass
 
-        # Sort by page, then by y1 descending (top of page = high y in PDF), then x1
-        fields.sort(key=lambda f: (
-            f['page'] or 999,
-            -(f['rect'][1] if f['rect'] else 0),
-            f['rect'][0] if f['rect'] else 0
-        ))
-        return jsonify(fields)
+        buf = io.BytesIO()
+        writer.write(buf)
+        buf.seek(0)
+        safe = box_name.replace(' ', '_').replace('/', '-')
+        return Response(buf.read(), mimetype='application/pdf',
+            headers={'Content-Disposition': f'attachment; filename="tick_{safe}.pdf"'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
