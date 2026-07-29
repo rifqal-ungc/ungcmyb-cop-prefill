@@ -41,11 +41,12 @@ def _load():
             continue
         names.add(name)
         data.setdefault(name, []).append({
-            'section':     _get(row, 'SECTION'),
-            'question_id': _get(row, 'QUESTION_ID'),
-            'subquestion': _get(row, 'SUBQUESTION'),
-            'choice':      _get(row, 'CHOICE'),
-            'response':    _get(row, 'RESPONSE'),
+            'section':          _get(row, 'SECTION'),
+            'question_id':      _get(row, 'QUESTION_ID'),
+            'orig_question_id': _get(row, 'ORIGINAL_QUESTION_ID'),
+            'subquestion':      _get(row, 'SUBQUESTION'),
+            'choice':           _get(row, 'CHOICE'),
+            'response':         _get(row, 'RESPONSE'),
         })
     wb.close()
     _cache = (sorted(names), data)
@@ -837,9 +838,23 @@ _SHARED_V2_QPAGE = {'G13': 18, 'HR/L1': 19}
 
 CONCAT_TEXT_FIELDS = {
     'HR/L1.1': 'HR/L1.1 Text Field 001',
-    # E3.1.1: Excel export strips per-topic subquestion info (all rows have SUBQ=None).
-    # Concatenate all RESP values into the bottom additional-info field so nothing is lost.
-    'E3.1.1': 'E3.1.1 Text Field 9',
+}
+
+# E3.1.1 per-topic text fields: ORIGINAL_QUESTION_ID suffix → PDF field name.
+# Confirmed by user: _1=Climate, _2=Water, _3=Oceans, _4=Nature, _5=Air pollution,
+# _6=Waste management, _7=Energy & resource use, _8=Other.
+# Circularity (_10) follows the same non-sequential quirk as E1 and E3.1.1.
+_E311_FIELDS = {
+    'E3.1.1_1':  'E3.1.1 Text Field 1',
+    'E3.1.1_2':  'E3.1.1 Text Field 2',
+    'E3.1.1_3':  'E3.1.1 Text Field 3',
+    'E3.1.1_4':  'E3.1.1 Text Field 4',
+    'E3.1.1_5':  'E3.1.1 Text Field 5',
+    'E3.1.1_6':  'E3.1.1 Text Field 6',
+    'E3.1.1_7':  'E3.1.1 Text Field 7',
+    'E3.1.1_8':  'E3.1.1 Text Field 8',
+    'E3.1.1_9':  'E3.1.1 Text Field 9',   # additional info / fallback
+    'E3.1.1_10': 'E3.1.1 Text Field 10',  # Circularity
 }
 
 # Optional topics in HR/L1.1 (page 20) that also have their own checkboxes.
@@ -1211,8 +1226,8 @@ TEXT_FIELDS = {
     'L2.1A':    'L2.1 Text Field 14',
     # E3.1 additional info text
     'E3.1A':  'E3.1 Text Field 1',
-    # E3.1.1: additional-info variant only (multi-RESP rows handled by CONCAT_TEXT_FIELDS)
-    'E3.1.1A': 'E3.1.1 Text Field 9',
+    # E3.1.1 per-topic rows are handled by _E311_FIELDS (routed via ORIGINAL_QUESTION_ID)
+    'E3.1.1A': 'E3.1.1 Text Field 9',   # additional-info variant
     # E5 (stays as E5 in 2026; ID_REMAP shifted old E5→E7, E7→E8)
     # Our existing TEXT_FIELDS['E5'] = 'E5 Text Field 7' is unreachable after ID_REMAP.
     # 'E7A': 'E5 Text Field 7' would handle the remapped path but E7 is now a checkbox Q.
@@ -1366,6 +1381,16 @@ def _fill_pdf(subs):
         choice   = _remap(s['choice'])
         subq     = _remap_subq(s['subquestion'])
         response = s['response'].strip()
+
+        # ── E3.1.1 per-topic text fields (routed via ORIGINAL_QUESTION_ID) ──
+        if qid == 'E3.1.1':
+            orig = s.get('orig_question_id', '')
+            fname = _E311_FIELDS.get(orig)
+            if fname and response:
+                val = ' / '.join(p.strip() for p in response.splitlines() if p.strip())
+                field_values[fname] = val
+                filled_qids.add(qid)
+            continue
 
         # ── MATRIX RADIO ──────────────────────────────────────────────────
         if qid in MATRIX_RADIO:
