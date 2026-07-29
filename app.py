@@ -1795,6 +1795,57 @@ def test_hrl1_checkboxes():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/which-fields', methods=['POST'])
+def which_fields():
+    """Upload a PDF; returns every checkbox field that has /V=/Yes or /AS=/Yes.
+    Usage: curl -X POST -F 'file=@manual.pdf' <url>/api/debug/which-fields
+    """
+    try:
+        f = request.files.get('file')
+        if not f:
+            return jsonify({'error': 'no file uploaded'}), 400
+        buf = io.BytesIO(f.read())
+        reader = PdfReader(buf)
+        checked = []
+
+        def walk(field_ref, path=''):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            t_raw = obj.get('/T')
+            name = None
+            if t_raw is not None:
+                try:
+                    name = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception:
+                    name = str(t_raw).strip('()')
+            full = (path + '.' + name if path and name else name or path)
+            v = str(obj.get('/V', ''))
+            as_ = str(obj.get('/AS', ''))
+            if '/Yes' in v or '/Yes' in as_:
+                checked.append({'field': full, 'V': v, 'AS': as_})
+            kids = obj.get('/Kids')
+            if kids is not None:
+                try:
+                    kids_obj = kids.get_object() if hasattr(kids, 'get_object') else kids
+                    for k in kids_obj:
+                        walk(k, full)
+                except Exception:
+                    pass
+
+        acroform = reader.trailer['/Root'].get('/AcroForm')
+        if acroform:
+            acroform = acroform.get_object() if hasattr(acroform, 'get_object') else acroform
+            fields_ref = acroform.get('/Fields', [])
+            fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
+            for fld in fields_list:
+                walk(fld)
+        return jsonify(checked)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/debug/tick-box/<path:box_name>', methods=['GET'])
 def tick_single_box(box_name):
     """Diagnostic: tick ONLY the named G13 Check Box (all others off). E.g. /api/debug/tick-box/G13 Check Box 45"""
