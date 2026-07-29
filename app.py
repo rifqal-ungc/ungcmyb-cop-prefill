@@ -1662,7 +1662,7 @@ def _fill_pdf(subs):
     # instead of re-deriving all appearances from parent /V.
     if shared_v2_pages and _acroform is not None:
         _vpg_map = {}
-        for _i, _pg in enumerate(reader.pages):
+        for _i, _pg in enumerate(writer.pages):
             _pgo = _pg.get_object() if hasattr(_pg, 'get_object') else _pg
             _vpg_map[_i + 1] = _pgo
 
