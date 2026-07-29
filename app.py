@@ -674,6 +674,35 @@ CHECKBOX_MAP = {
         },
         'text_field': 'G13 Text Field 12',
     },
+    'HR/L1': {
+        'fields': {
+            # Left column (options 1-12)
+            'freedom of association and the right to collective bargaining':     'G13 Check Box 26',
+            'child labour':                                                      'G13 Check Box 27',
+            'forced labour':                                                     'G13 Check Box 28',
+            'non-discrimination and equality':                                   'G13 Check Box 29',
+            'safe and healthy working environment':                              'G13 Check Box 30',
+            'wages':                                                             'G13 Check Box 31',
+            'working hours':                                                     'G13 Check Box 32',
+            'mental health and employee wellbeing':                              'G13 Check Box 33',
+            'gender equality and women':                                         'G13 Check Box 34',
+            "children's rights beyond child labour":                             'G13 Check Box 35',
+            'rights of vulnerable groups':                                       'G13 Check Box 36',
+            'right to a clean, healthy and sustainable environment':             'G13 Check Box v2 62',
+            # Right column (options 13-22)
+            'just transition':                                                   'G13 Check Box 37',
+            'land rights and rights of indigenous peoples':                      'G13 Check Box 38',
+            'raw material sourcing':                                             'G13 Check Box 39',
+            'digital security, privacy, and data protection':                    'G13 Check Box 40',
+            'freedom of expression and access to information':                   'G13 Check Box 41',
+            'product and service end-user rights':                               'G13 Check Box 42',
+            'emerging technologies and responsible adoption of artificial intelligence': 'G13 Check Box v2 59',
+            'conflict-sensitive due diligence':                                  'G13 Check Box v2 60',
+            'other human/labour rights topics identified as material':           'G13 Check Box v2 61',
+            'no informal or formal human/labour rights assessment conducted':    'G13 Check Box v2 63',
+        },
+        'text_field': 'HR/L1.1 Text Field 001',
+    },
     # HR/L2.2: single checkbox — whether policy references right to form/join a trade union
     'HR/L2.2': {
         'fields': {
@@ -744,11 +773,6 @@ CHECKBOX_MAP = {
 # For each matching row: radio_values[field] = 1 (Yes = kid index 1).
 # Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
 CONCAT_TEXT_FIELDS = {
-    # HR/L1 and HR/L1.1 are BOTH backed by the same PDF text field "HR/L1.1 Text Field 001".
-    # The AcroForm for HR/L1 is a group with one /Tx child (T="1 Text Field 001"), giving the
-    # full path "HR/L1.1 Text Field 001". The visual checkboxes are decorative/JS-rendered —
-    # the actual form data goes here as text. Accumulate all selected topic choices.
-    'HR/L1':   'HR/L1.1 Text Field 001',
     'HR/L1.1': 'HR/L1.1 Text Field 001',
 }
 
