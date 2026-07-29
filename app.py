@@ -1610,37 +1610,47 @@ def cors(resp):
 
 @app.route('/api/debug/test-g13-checkboxes', methods=['GET'])
 def test_g13_checkboxes():
-    """Diagnostic: tick every G13 Check Box (14–55) to map their physical positions."""
+    """Diagnostic: tick every G13 Check Box (14–28) using AcroForm tree walk + NeedAppearances."""
     try:
+        from pypdf.generic import NameObject as _N2
         reader = PdfReader(PDF_PATH)
         writer = PdfWriter()
         writer.append(reader)
-        all_g13 = {f'G13 Check Box {n}': '/Yes' for n in range(14, 56)}
+        target_fields = {f'G13 Check Box {n}': '/Yes' for n in range(14, 29)}
+        # Drive auto_regenerate via per-page scan (works for boxes on page-obj 192)
         for page in writer.pages:
-            writer.update_page_form_field_values(page, all_g13, auto_regenerate=True)
-        from pypdf.generic import NameObject as _N2
-        for page in writer.pages:
-            page_obj = page.get_object() if hasattr(page, 'get_object') else page
-            annots_ref = page_obj.get('/Annots')
-            if annots_ref is None: continue
-            annots = annots_ref.get_object() if hasattr(annots_ref, 'get_object') else annots_ref
-            if not hasattr(annots, '__iter__'): continue
-            for ar in annots:
+            writer.update_page_form_field_values(page, target_fields, auto_regenerate=True)
+        # AcroForm tree walk — sets /V+/AS for ALL fields including those on page-obj 196
+        def _fix(field_ref):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            kids_ref = obj.get('/Kids')
+            if kids_ref is not None:
                 try:
-                    a = ar.get_object()
-                    if str(a.get('/FT','')) != '/Btn' or (int(a.get('/Ff',0)) & (1<<15)): continue
-                    v = a.get('/V')
-                    if v is None: continue
-                    try: vs = v.get_data().decode('utf-8', errors='replace')
-                    except: vs = str(v).strip('()')
-                    if not vs.startswith('/'): vs = f'/{vs}'
-                    a[_N2('/V')] = _N2(vs)
+                    kids = kids_ref.get_object() if hasattr(kids_ref, 'get_object') else kids_ref
+                    for k in kids: _fix(k)
                 except Exception: pass
+            ft = str(obj.get('/FT', ''))
+            ff = int(obj.get('/Ff', 0))
+            if ft != '/Btn' or (ff & (1 << 15)): return
+            t_raw = obj.get('/T')
+            if t_raw is None: return
+            try: fname = t_raw.get_data().decode('utf-8', errors='replace')
+            except Exception: fname = str(t_raw).strip('()')
+            if fname in target_fields:
+                val = _N2(target_fields[fname])
+                obj[_N2('/V')]  = val
+                obj[_N2('/AS')] = val
         try:
-            acroform = writer._root_object['/AcroForm'].get_object()
-            if '/NeedAppearances' in acroform:
-                del acroform['/NeedAppearances']
+            acroform_ref = writer._root_object['/AcroForm']
+            acroform = acroform_ref.get_object() if hasattr(acroform_ref, 'get_object') else acroform_ref
+            fields_ref = acroform.get('/Fields', [])
+            fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
+            for f in fields_list: _fix(f)
         except Exception: pass
+        # Keep /NeedAppearances so viewers regenerate from /V
         buf = io.BytesIO()
         writer.write(buf)
         buf.seek(0)
