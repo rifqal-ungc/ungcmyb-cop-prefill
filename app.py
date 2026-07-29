@@ -1138,15 +1138,15 @@ BOARD_NA_RADIOS = {
 # ---------------------------------------------------------------------------
 GHG_SCOPE_FIELDS = {
     'scope 1 emissions': {
-        'text_field': 'E5 Text Field 11',
+        'text_field': 'E5 Text Field 20',
         'no_measure_radio': 'E5.1 Radio Button 1',
     },
     'scope 2 (market-based) emissions': {
-        'text_field': 'E5 Text Field 12',
+        'text_field': 'E5 Text Field 21',
         'no_measure_radio': 'E5.1 Radio Button 2',
     },
     'scope 2 (location-based) emissions': {
-        'text_field': 'E5 Text Field 17',
+        'text_field': 'E5 Text Field 22',
         'no_measure_radio': 'E5.1 Radio Button 3',
     },
 }
@@ -1241,8 +1241,8 @@ TEXT_FIELDS = {
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
     'G6.1AA':  'G7.1 Text Field 9',    # additional additional-info for G6.1
     'HR/L1A':  'G13 Text Field 13',         # HR/L1 "Please provide additional information" box (page 19)
-    'E5.1A':   'E5 Text Field 7',       # E5.1 additional info → E5 general text field
-    'E5.1AA':  'E5 Text Field 7',       # E5.1 extra additional info (same field)
+    'E5.1A':   'E5 Text Field 11',      # E5.1 additional info → E5 "Please provide additional information"
+    'E5.1AA':  'E5 Text Field 11',      # E5.1 extra additional info (same field)
 }
 
 # ---------------------------------------------------------------------------
@@ -1573,7 +1573,8 @@ def _fill_pdf(subs):
                     radio_values[sf['no_measure_radio']] = 0
                     filled_qids.add(qid)
                 elif _match(choice, 'known') and response:
-                    field_values[sf['text_field']] = str(response)
+                    v = response
+                    field_values[sf['text_field']] = str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
                     filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
