@@ -391,9 +391,9 @@ MATRIX_RADIO = {
             'E1 Radio Button 9': 'E1 Text Field 8',   # Other environmental topic(s)
         },
     },
-    # E3.1: conditional on E3 — progress on environmental prevention per topic (9 rows × 5 options)
+    # E3.1: progress monitoring per topic (9 rows × 5 options) — same columns as HR/L4.1
     'E3.1': {
-        'options': _PROGRESS_OPTS,
+        'options': _HRL41_OPTS,
         'rows': _env_rows('E3.1'),
         'text_field': None,
     },
@@ -884,7 +884,7 @@ _ENV_TOPICS_9 = [
     'oceans',
     'nature and biodiversity',
     'air pollution',
-    'waste management',
+    'waste',         # matches both "Waste management" (2026) and "Waste (e.g., ...)" (2025)
     'circularity',
     'energy & resource use',
     'other environmental topic(s)',
@@ -938,7 +938,7 @@ MATRIX_CHECKBOX = {
             'developed involving environmental expertise from inside and/or outside the company',
             'other',
         ],
-        'prefix': 'E1.1 Check Box', 'n_rows': 8, 'n_total': 72, 'special_row': 5,
+        'prefix': 'E1.1 Check Box', 'n_rows': 8, 'n_total': 72, 'special_row': 6,
         'text_field': 'E1.1 Text Field 1',
     },
     # E2: stakeholder engagement per env topic (9 topics × 7 options = 63 boxes)
@@ -953,7 +953,7 @@ MATRIX_CHECKBOX = {
             'to collaborate in the prevention/mitigation of the risks/impacts in question',
             'other',
         ],
-        'prefix': 'E2 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 5,
+        'prefix': 'E2 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 6,
         'text_field': 'E2 Text Field 1',
     },
     # E3: prevention actions per env topic (9 topics × 7 options = 63 boxes)
@@ -968,7 +968,7 @@ MATRIX_CHECKBOX = {
             'collaborated with governmental or regulatory bodies',
             'other',
         ],
-        'prefix': 'E3 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 5,
+        'prefix': 'E3 Check Box', 'n_rows': 8, 'n_total': 63, 'special_row': 6,
         'text_field': 'E3 Text Field 1',
     },
     # E3.1.2: progress tracking per env topic (9 topics × 5 options = 45 boxes)
@@ -982,7 +982,7 @@ MATRIX_CHECKBOX = {
             'progress is reported externally',
             'other',
         ],
-        'prefix': 'E3.1.2. Check Box', 'n_rows': 8, 'n_total': 45, 'special_row': 5,
+        'prefix': 'E3.1.2. Check Box', 'n_rows': 8, 'n_total': 45, 'special_row': 6,
         'text_field': 'E3.1.2 Text Field 10',
     },
     # HR/L2.1: policy attributes per HR/L topic (8 rows × 8 options = 64 boxes)
