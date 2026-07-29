@@ -224,7 +224,7 @@ _ENV_ROWS_9 = [
     ('oceans',                       '{q} Radio Button 3'),
     ('nature and biodiversity',      '{q} Radio Button 4'),
     ('air pollution',                '{q} Radio Button 5'),
-    ('waste management',             '{q} Radio Button 6'),
+    ('waste',                        '{q} Radio Button 6'),  # matches both "Waste management" (2026) and "Waste (e.g., ...)" (2025)
     ('circularity',                  '{q} Radio Button 7'),
     ('energy & resource use',        '{q} Radio Button 8'),
     ('other environmental topic(s)', '{q} Radio Button 9'),
@@ -377,7 +377,19 @@ MATRIX_RADIO = {
             'not applicable (please provide additional information)',
         ],
         'rows': _env_rows('E1'),
-        'text_field': 'E1 Text Field 1',
+        # Per-row "year last reviewed" text fields (p30, top to bottom).
+        # PDF field numbering is non-sequential for rows 7–9 (quirk in template).
+        'row_text_fields': {
+            'E1 Radio Button 1': 'E1 Text Field 1',   # Climate change
+            'E1 Radio Button 2': 'E1 Text Field 2',   # Water
+            'E1 Radio Button 3': 'E1 Text Field 3',   # Oceans
+            'E1 Radio Button 4': 'E1 Text Field 4',   # Nature and biodiversity
+            'E1 Radio Button 5': 'E1 Text Field 5',   # Air pollution
+            'E1 Radio Button 6': 'E1 Text Field 6',   # Waste management
+            'E1 Radio Button 7': 'E1 Text Field 9',   # Circularity
+            'E1 Radio Button 8': 'E1 Text Field 7',   # Energy & resource use
+            'E1 Radio Button 9': 'E1 Text Field 8',   # Other environmental topic(s)
+        },
     },
     # E3.1: conditional on E3 — progress on environmental prevention per topic (9 rows × 5 options)
     'E3.1': {
@@ -1205,7 +1217,7 @@ TEXT_FIELDS = {
     # E11 additional text fields (GHG measurements per topic)
     'E11A': 'E11 Text Field 1',
     # Additional IDs seen in some submissions
-    'E1AAA':   'E1 Text Field 1',       # extra additional-info variant for E1
+    'E1AAA':   'E1 Text Field 10',      # E1 "provide additional information" text box (bottom of page 30)
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
     'G6.1AA':  'G7.1 Text Field 9',    # additional additional-info for G6.1
     'HR/L1A':  'G13 Text Field 13',         # HR/L1 "Please provide additional information" box (page 19)
