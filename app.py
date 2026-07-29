@@ -699,12 +699,11 @@ CHECKBOX_MAP = {
             'product and service end-user rights':                               'G13 Check Box 42',
             'emerging technologies and responsible adoption of artificial intelligence': 'G13 Check Box v2 59',
             'conflict-sensitive due diligence':                                  'G13 Check Box v2 60',
-            'security arrangements':                                             'G13 Check Box v2 60',
             'other human/labour rights topics identified as material':           'G13 Check Box v2 61',
             'other':                                                             'G13 Check Box v2 61',
             'no informal or formal human/labour rights assessment conducted':    'G13 Check Box v2 63',
         },
-        'text_field': 'HR/L1.1 Text Field 001',
+        'text_field': 'G13 Text Field 13',
     },
     # HR/L2.2: single checkbox — whether policy references right to form/join a trade union
     'HR/L2.2': {
@@ -775,6 +774,16 @@ CHECKBOX_MAP = {
 # Binary Yes/No radio matrices where the CHOICE (or SUBQUESTION) identifies the row.
 # For each matching row: radio_values[field] = 1 (Yes = kid index 1).
 # Used for E11 where the 2025 data has one row per selected topic with choice = topic name.
+# G13 Check Box v2 59/60/61 each span two pages: page 18 (G13 section) and
+# page 19 (HR/L1 section).  We track which question context activated each field
+# so we can set /AS only on the correct page's widget kid.
+_SHARED_V2_FIELDS = frozenset({
+    'G13 Check Box v2 59',
+    'G13 Check Box v2 60',
+    'G13 Check Box v2 61',
+})
+_SHARED_V2_QPAGE = {'G13': 18, 'HR/L1': 19}
+
 CONCAT_TEXT_FIELDS = {
     'HR/L1.1': 'HR/L1.1 Text Field 001',
 }
@@ -1137,7 +1146,7 @@ TEXT_FIELDS = {
     'E1AAA':   'E1 Text Field 1',       # extra additional-info variant for E1
     'AC3AA':   'AC3 Text Field 19',     # second additional-info for AC3
     'G6.1AA':  'G7.1 Text Field 9',    # additional additional-info for G6.1
-    'HR/L1A':  'HR/L1.1 Text Field 001',  # HR/L1 additional topic info (same text field)
+    'HR/L1A':  'G13 Text Field 13',         # HR/L1 "Please provide additional information" box (page 19)
     'E5.1A':   'E5 Text Field 7',       # E5.1 additional info → E5 general text field
     'E5.1AA':  'E5 Text Field 7',       # E5.1 extra additional info (same field)
 }
@@ -1271,9 +1280,10 @@ def _fill_pdf(subs):
         qid = ID_REMAP.get(s['question_id'], s['question_id'])
         clean.append({**s, 'question_id': qid})
 
-    field_values = {}   # text + checkbox fields
-    radio_values = {}   # radio field name → choice index (0-based)
-    filled_qids  = set()
+    field_values    = {}   # text + checkbox fields
+    radio_values    = {}   # radio field name → choice index (0-based)
+    filled_qids     = set()
+    shared_v2_pages = {}   # shared v2 field name → set of target viewer page numbers
 
     for s in clean:
         qid      = s['question_id']
@@ -1324,6 +1334,8 @@ def _fill_pdf(subs):
             q = CHECKBOX_MAP[qid]
             for opt_norm, fname in q['fields'].items():
                 if _match(choice, opt_norm):
+                    if fname in _SHARED_V2_FIELDS and qid in _SHARED_V2_QPAGE:
+                        shared_v2_pages.setdefault(fname, set()).add(_SHARED_V2_QPAGE[qid])
                     field_values[fname] = '/Yes'
                     filled_qids.add(qid)
                     break
@@ -1627,20 +1639,96 @@ def _fill_pdf(subs):
             except Exception:
                 pass
 
+    # Get writer's AcroForm once — reused by main walk and shared-v2 fix
+    _acroform    = None
+    _fields_list = []
     try:
-        acroform_ref = writer._root_object['/AcroForm']
-        acroform = acroform_ref.get_object() if hasattr(acroform_ref, 'get_object') else acroform_ref
-        fields_ref = acroform.get('/Fields', [])
-        fields_list = fields_ref.get_object() if hasattr(fields_ref, 'get_object') else fields_ref
-        for field_ref in fields_list:
-            _fix_checkbox_field(field_ref)
+        _acroform_ref = writer._root_object['/AcroForm']
+        _acroform     = (_acroform_ref.get_object()
+                         if hasattr(_acroform_ref, 'get_object') else _acroform_ref)
+        _fields_ref   = _acroform.get('/Fields', [])
+        _fields_list  = (_fields_ref.get_object()
+                         if hasattr(_fields_ref, 'get_object') else _fields_ref)
     except Exception:
         pass
 
-    # Leave /NeedAppearances=True (set by auto_regenerate) so viewers regenerate
-    # checkbox appearances from /V.  Clearing it forces use of stored /AP streams,
-    # but those streams on some template pages (e.g. page-obj 196) fail to render
-    # in common viewers even though /V and /AS are correctly set.
+    for _field_ref in _fields_list:
+        _fix_checkbox_field(_field_ref)
+
+    # Post-process shared v2 fields: G13 Check Box v2 59/60/61 each have two widget
+    # kids — page 18 (G13 section) and page 19 (HR/L1 section).  Set /AS only on the
+    # kid(s) whose page was actually targeted by the current submission's data, then
+    # clear /NeedAppearances so viewers use per-kid /AS + freshly generated /AP streams
+    # instead of re-deriving all appearances from parent /V.
+    if shared_v2_pages and _acroform is not None:
+        _vpg_map = {}
+        for _i, _pg in enumerate(reader.pages):
+            _pgo = _pg.get_object() if hasattr(_pg, 'get_object') else _pg
+            _vpg_map[_i + 1] = _pgo
+
+        def _fix_shared_v2(field_ref, path=''):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            t_raw = obj.get('/T')
+            if t_raw:
+                try: t = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception: t = str(t_raw).strip('()')
+                full = (path + '.' + t if path else t).strip('.')
+            else:
+                full = path
+
+            if full in shared_v2_pages:
+                target_pgs = shared_v2_pages[full]
+                # Set parent /V: /Yes only when both pages are targeted
+                obj[_NameObj2('/V')] = _NameObj2('/Yes' if len(target_pgs) > 1 else '/Off')
+                kids_ref = obj.get('/Kids')
+                if kids_ref is not None:
+                    try:
+                        kids = (kids_ref.get_object()
+                                if hasattr(kids_ref, 'get_object') else kids_ref)
+                        for kid_ref in kids:
+                            try:
+                                kid = (kid_ref.get_object()
+                                       if hasattr(kid_ref, 'get_object') else kid_ref)
+                                p_ref   = kid.get('/P')
+                                kid_pnum = None
+                                if p_ref is not None:
+                                    p_obj = (p_ref.get_object()
+                                             if hasattr(p_ref, 'get_object') else p_ref)
+                                    for pn, pgo in _vpg_map.items():
+                                        if pgo == p_obj:
+                                            kid_pnum = pn
+                                            break
+                                kid[_NameObj2('/AS')] = _NameObj2(
+                                    '/Yes' if kid_pnum in target_pgs else '/Off'
+                                )
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                return
+
+            kr = obj.get('/Kids')
+            if kr is not None:
+                try:
+                    ks = kr.get_object() if hasattr(kr, 'get_object') else kr
+                    for kid in ks:
+                        _fix_shared_v2(kid, full)
+                except Exception:
+                    pass
+
+        for _field_ref in _fields_list:
+            _fix_shared_v2(_field_ref)
+
+        # Clear /NeedAppearances: viewers use the per-kid /AS values set above
+        # together with fresh /AP streams built by auto_regenerate.
+        from pypdf.generic import BooleanObject as _BoolObj
+        try:
+            _acroform[_NameObj2('/NeedAppearances')] = _BoolObj(False)
+        except Exception:
+            pass
 
     buf = io.BytesIO()
     writer.write(buf)
