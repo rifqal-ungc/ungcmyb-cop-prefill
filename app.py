@@ -1358,9 +1358,9 @@ def _fill_pdf(subs):
                 if _match(subq, label):
                     field = fname
                     break
-            if field is None and q.get('row_text_fields'):
-                # Unknown subquestion (e.g. an HR/L1.1-selected topic in HR/L2 row 8).
-                # Fall back to the last row, mirroring MATRIX_CHECKBOX behaviour.
+            if field is None:
+                # Unknown subquestion (e.g. an HR/L1.1-selected topic appearing in row 8
+                # of HR/L2, HR/L4.1, etc.). Fall back to last row, mirroring MATRIX_CHECKBOX.
                 field = q['rows'][-1][1]
             if field:
                 # choice_map: explicit 2025→2026 crosswalk (bypasses _best_option ambiguity)
