@@ -397,6 +397,17 @@ MATRIX_RADIO = {
         ],
         'rows': _hrl_rows('L2'),
         'text_field': 'L2 Text Field 13',
+        # Per-row "year last reviewed" text fields (page 21, top to bottom).
+        'row_text_fields': {
+            'L2 Radio Button 1': 'Text Field 8',
+            'L2 Radio Button 2': 'Text Field 20',
+            'L2 Radio Button 3': 'Text Field v2 29',
+            'L2 Radio Button 4': 'Text Field 22',
+            'L2 Radio Button 5': 'Text Field 23',
+            'L2 Radio Button 6': 'Text Field 30',
+            'L2 Radio Button 7': 'Text Field 24',
+            'L2 Radio Button 8': 'Text Field 25',
+        },
     },
     # HR/L4.1: conditional on HR/L4 — progress on HR/L prevention per topic (8 rows × 5 options)
     'HR/L4.1': {
@@ -1327,7 +1338,20 @@ def _fill_pdf(subs):
                 if best_i >= 0:
                     radio_values[field] = best_i
                     filled_qids.add(qid)
-            if response and q.get('text_field'):
+                row_texts = q.get('row_text_fields', {})
+                if response and field in row_texts:
+                    # Strip trailing ".0" from year values stored as floats in Excel
+                    val = response
+                    try:
+                        fval = float(val)
+                        if fval == int(fval):
+                            val = str(int(fval))
+                    except (ValueError, OverflowError):
+                        pass
+                    field_values[row_texts[field]] = val
+                elif response and q.get('text_field'):
+                    field_values[q['text_field']] = response
+            elif response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
         # ── SINGLE RADIO ──────────────────────────────────────────────────
