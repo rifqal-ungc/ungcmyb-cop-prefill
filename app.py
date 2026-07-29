@@ -512,18 +512,21 @@ SINGLE_RADIO = {
         'text_field': 'E14 Text Field 1',
     },
     # ── HR/L ────────────────────────────────────────────────────────────────
+    # PDF kid order confirmed from field dump: kid 0 = Unknown, kid 1 = Choose not to disclose.
+    # When the company has a known value the choice text won't match either option,
+    # so no radio is selected and the value goes to text_field only.
     'HR/L6': {
         'options': [
-            'percentage of women (%)',
             'unknown',
+            'choose not to disclose',
         ],
         'field': 'L6 Radio Button 1',
         'text_field': 'L6 Text Field 1',
     },
     'HR/L7': {
         'options': [
-            'rate of work-related accidents',
             'unknown',
+            'choose not to disclose',
         ],
         'field': 'L7 Radio Button 1',
         'text_field': 'L7 Text Field ',
