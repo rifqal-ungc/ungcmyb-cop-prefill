@@ -1846,6 +1846,65 @@ def which_fields():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/debug/page-fields/<int:viewer_page>', methods=['GET'])
+def page_fields(viewer_page):
+    """Dump ALL form fields on the given viewer page (1-based), sorted by position."""
+    try:
+        reader = PdfReader(PDF_PATH)
+        target_page = reader.pages[viewer_page - 1]
+        target_ref = target_page.indirect_reference
+        results = []
+
+        def walk(field_ref, path=''):
+            try:
+                obj = field_ref.get_object() if hasattr(field_ref, 'get_object') else field_ref
+            except Exception:
+                return
+            t_raw = obj.get('/T')
+            name_part = None
+            if t_raw is not None:
+                try: name_part = t_raw.get_data().decode('utf-8', errors='replace')
+                except Exception: name_part = str(t_raw).strip('()')
+            full = (path + '.' + name_part if path and name_part else name_part or path)
+            p_ref = obj.get('/P')
+            rect = obj.get('/Rect')
+            if p_ref is not None and rect is not None:
+                try:
+                    p_obj = p_ref.get_object() if hasattr(p_ref, 'get_object') else p_ref
+                    if p_obj.indirect_reference == target_ref:
+                        try:
+                            rv = rect.get_object() if hasattr(rect, 'get_object') else rect
+                            rect_vals = [float(rv[0]), float(rv[1]), float(rv[2]), float(rv[3])]
+                        except Exception:
+                            rect_vals = None
+                        ft = str(obj.get('/FT', ''))
+                        v = str(obj.get('/V', ''))
+                        results.append({'name': full, 'FT': ft, 'V': v, 'rect': rect_vals})
+                except Exception:
+                    pass
+            kids = obj.get('/Kids')
+            if kids is not None:
+                try:
+                    kids_obj = kids.get_object() if hasattr(kids, 'get_object') else kids
+                    for k in kids_obj:
+                        walk(k, full)
+                except Exception:
+                    pass
+
+        acroform = reader.trailer['/Root'].get('/AcroForm')
+        if acroform:
+            acroform = acroform.get_object() if hasattr(acroform, 'get_object') else acroform
+            fl = acroform.get('/Fields', [])
+            fl = fl.get_object() if hasattr(fl, 'get_object') else fl
+            for f in fl:
+                walk(f)
+
+        results.sort(key=lambda r: (-(r['rect'][1] if r['rect'] else 0), r['rect'][0] if r['rect'] else 0))
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/debug/tick-box/<path:box_name>', methods=['GET'])
 def tick_single_box(box_name):
     """Diagnostic: tick ONLY the named G13 Check Box (all others off). E.g. /api/debug/tick-box/G13 Check Box 45"""
