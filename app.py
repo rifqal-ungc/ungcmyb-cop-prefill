@@ -29,7 +29,13 @@ def _load():
         idx = col.get(key)
         if idx is None or idx >= len(row):
             return default
-        return str(row[idx] or '').strip()
+        val = row[idx]
+        # `val or ''` would wrongly blank out a genuine numeric 0 (falsy in
+        # Python) -- e.g. "Under 30 years old (%) = 0" or "Other (%) = 0".
+        # Found via RHB Bank Berhad, where both were silently dropped.
+        if val is None:
+            return default
+        return str(val).strip()
 
     data, names = {}, set()
     for row in rows:
