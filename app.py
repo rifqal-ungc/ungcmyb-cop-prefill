@@ -72,7 +72,7 @@ def _match(a, b):
 # ---------------------------------------------------------------------------
 ID_REMAP = {
     'G12': 'G13', 'G13': 'G14',
-    'E5': 'E7', 'E7': 'E8', 'E8': 'E9', 'E10': 'E11',
+    'E5': 'E7', 'E7': 'E8', 'E8': 'E9', 'E10': 'E11', 'E11': 'E12',
     # HR/L section: Excel may store without the "HR/" prefix
     'L2': 'HR/L2', 'L4.1': 'HR/L4.1', 'L5': 'HR/L5',
     'L6': 'HR/L6', 'L7': 'HR/L7',
@@ -606,8 +606,6 @@ CHECKBOX_SEQ = {
             'yes, we have set targets for renewable energy procurement',
             'yes, we have set targets to end the exploration of fossil fuels, the expansion of existing fossil fuel reserves, the extraction of fossil fuels',
             'yes, we have set other targets to phase out fossil fuel usage',
-            'no, but we plan to within the next two years',
-            'no (please provide additional information)',
         ],
         'prefix': 'E9 v2 Check Box', 'start': 13,
         'text_field': 'E8 Text Field 1',
@@ -820,8 +818,6 @@ CHECKBOX_MAP = {
             'yes, and it includes transition risk assessments':                                                              'E7 Check Box 9',
             'yes, and it includes a physical climate risk scenario analysis':                                                'E7 Check Box 11',
             'yes, and it includes actions to increase adaptation and resilience in the communities in which we operate':     'E7 Check Box 8',
-            'no, but we plan to within the next two years':                                                                 'E7 Check Box 7',
-            'no (please provide additional information)':                                                                   'E7 Check Box 6',
         },
         'text_field': 'E8 v2 Text Field 14',
     },
@@ -1163,6 +1159,27 @@ GHG_SCOPE_FIELDS = {
     },
 }
 
+# Water measurement (E12) — maps normalised subq → (text_field, radio)
+# Known ('yes' after _remap) → fill text_field; Unknown → radio kid 0; Not applicable → radio kid 1
+WATER_FIELDS = {
+    'total water withdrawal': {
+        'text_field': 'E11 Text Field 1',
+        'radio': 'E11 Radio Button 1',
+    },
+    'percentage of water withdrawn in regions with high or extremely high water stress(%)': {
+        'text_field': 'E11 Text Field 2',
+        'radio': 'E11 Radio Button 2',
+    },
+    'total water consumption': {
+        'text_field': 'E11 Text Field 3',
+        'radio': 'E11 Radio Button 3',
+    },
+    'percentage of water consumed in regions with high or extremely high water stress(%)': {
+        'text_field': 'E11 Text Field 4',
+        'radio': 'E11 Radio Button 4',
+    },
+}
+
 TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
@@ -1194,7 +1211,7 @@ TEXT_FIELDS = {
     'E5A':  'E5 Text Field 7',
     'E6A':  'E6 Text Field 1',
     'E8A':  'E8 Text Field 1',
-    'E9A':  'E9 Text Field 1',
+    # E9A omitted: 2025 E9 (renewable energy) has no 2026 equivalent; prevent text leaking into E10's additional-info box
     'E13A': 'E13 Text Field 5',
     'E14A': 'E14 Text Field 1',
     'E16A': 'E15 Text Field 14',
@@ -1605,6 +1622,22 @@ def _fill_pdf(subs):
                     v = response
                     field_values[sf['text_field']] = str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
                     filled_qids.add(qid)
+
+        # ── WATER MEASUREMENT (E12) ───────────────────────────────────────
+        elif qid == 'E12':
+            wf = WATER_FIELDS.get(_remap_subq(s['subquestion']))
+            if wf:
+                if _match(choice, 'yes') and response:
+                    try:
+                        fv = float(response)
+                        field_values[wf['text_field']] = str(int(fv)) if fv.is_integer() else str(fv)
+                    except ValueError:
+                        field_values[wf['text_field']] = response
+                elif _match(choice, 'unknown'):
+                    radio_values[wf['radio']] = 0
+                elif _match(choice, 'not applicable'):
+                    radio_values[wf['radio']] = 1
+                filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
         elif qid in TEXT_FIELDS:
