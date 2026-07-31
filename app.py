@@ -745,6 +745,7 @@ CHECKBOX_MAP = {
             'land rights and rights of indigenous peoples':                      'G13 Check Box 38',
             'raw material sourcing':                                             'G13 Check Box 39',
             'digital security, privacy, and data protection':                    'G13 Check Box 40',
+            'digital security and privacy':                                      'G13 Check Box 40',  # 2025 wording, no "data protection"
             'freedom of expression and access to information':                   'G13 Check Box 41',
             'product and service end-user rights':                               'G13 Check Box 42',
             'emerging technologies and responsible adoption of artificial intelligence': 'G13 Check Box v2 59',
@@ -2042,6 +2043,19 @@ def _fill_pdf(subs):
             _acroform[_NameObj2('/NeedAppearances')] = _BoolObj(False)
         except Exception:
             pass
+
+    # A few internal qids (chosen to match PDF field naming, or left over from
+    # a bare 2025 id ID_REMAP doesn't touch) don't match the canonical UI qid
+    # in index.html's ALL_QIDS list. Without this, those questions would show
+    # as "still needs manual input" in the Results screen even when correctly
+    # filled. Add the UI-facing alias whenever the internal qid is present.
+    _CANONICAL_QID_ALIASES = {
+        'E5.1': 'E5',   # 2025 E5.1 (measure Scope 1/2) is 2026's actual E5 question
+        'AC7':  'AC6',  # 2025 AC6 (optional narrative) uses AC7-named PDF fields
+    }
+    for internal, canonical in _CANONICAL_QID_ALIASES.items():
+        if internal in filled_qids:
+            filled_qids.add(canonical)
 
     buf = io.BytesIO()
     writer.write(buf)
