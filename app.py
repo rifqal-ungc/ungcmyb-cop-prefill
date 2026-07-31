@@ -76,6 +76,13 @@ ID_REMAP = {
     # HR/L section: Excel may store without the "HR/" prefix
     'L2': 'HR/L2', 'L4.1': 'HR/L4.1', 'L5': 'HR/L5',
     'L6': 'HR/L6', 'L7': 'HR/L7',
+    # 2025 AC5 was a Yes/No "actions taken to address incidents?" gate with no 2026
+    # equivalent (2026 AC5 = detection mechanisms, a NEW question). A 2025 'No' is
+    # ambiguous between 2026 AC5.1's "No actions were taken" and "No incidents
+    # suspected", so drop it entirely; the AC5.1 measure rows carry the detail.
+    'AC5': 'AC5-2025-DROPPED',
+    # 2025 AC6 (optional describe) → 2026 AC6, whose PDF field is AC7-named
+    'AC6': 'AC7',
 }
 
 # ---------------------------------------------------------------------------
@@ -456,13 +463,17 @@ MATRIX_RADIO = {
     },
     # ── Anti-Corruption ──────────────────────────────────────────────────────
     # AC4.1: conditional on AC4 — training frequency per group (3 rows × 4 options)
+    # 2026 columns left→right (kid 0-3): One time only / Every two or more years /
+    # Every year / Unknown — identical to the 2025 choice values.
     'AC4.1': {
         'options': [
-            'annually',
-            'every two years',
-            'less frequently than every two years',
-            'varies by employee group or topic',
+            'one time only',
+            'every two or more years',
+            'every year',
+            'unknown',
         ],
+        # _CREMAP rewrites 'every year' → 'annually' (needed elsewhere), so map it back
+        'choice_map': {'annually': 2},
         'rows': [
             ('all employees',                                              'AC4.1 Radio Button 1'),
             ('selected employees (please provide additional information)', 'AC4.1 Radio Button 2'),
@@ -652,7 +663,10 @@ CHECKBOX_SEQ = {
         'prefix': 'AC5 v2 Check Box', 'start': 1,
         'text_field': 'AC5 Text Field 20',
     },
-    'AC6': {
+    # 2026 AC5.1 = actions taken to address incidents (was 2025 AC5.1; PDF fields
+    # keep the old AC6 naming). 2025 choices 'Internal measures'/'External measures'
+    # prefix-match options 1-2.
+    'AC5.1': {
         'options': [
             'internal measures (e.g. internal investigation, review by board of directors, review by ethics committee)',
             'external measures (e.g., audit, review, report to and collaborate with authorities)',
@@ -822,15 +836,16 @@ CHECKBOX_MAP = {
         'text_field': 'E8 v2 Text Field 14',
     },
     'AC1.1': {
-        # /api/fields confirms AC1.1 Check Box 1-6 exist.
-        # Note: "applied to own operations" is a prefix of "applied to own operations and suppliers"
-        # so both the shorter and longer choices will set Box 3 (bidirectional prefix match).
-        # This is acceptable — Box 3 checked as a superset doesn't harm the PDF read.
+        # 2026 boxes: 1 publicly available / 2 approved senior / 3 own operations /
+        # 4 suppliers / 5 other value-chain stakeholders / 6 other.
+        # 2025 combined choices map to multiple boxes (handler supports list values
+        # and resolves via _best_option so exact keys beat prefix overlaps).
         'fields': {
             'publicly available':                                               'AC1.1 Check Box 1',
             'approved at most senior level of the company':                     'AC1.1 Check Box 2',
             "applied to the company's own operations":                          'AC1.1 Check Box 3',
-            "applied to the company's own operations and suppliers":            'AC1.1 Check Box 4',
+            "applied to the company's own operations and suppliers":            ['AC1.1 Check Box 3', 'AC1.1 Check Box 4'],
+            "applied to the company's own operations and the value chain":      ['AC1.1 Check Box 3', 'AC1.1 Check Box 4', 'AC1.1 Check Box 5'],
             "applied to the other stakeholders within the company's value chain": 'AC1.1 Check Box 5',
             'other (please provide additional information)':                    'AC1.1 Check Box 6',
         },
@@ -1221,8 +1236,13 @@ TEXT_FIELDS = {
     'AC2A': 'AC2 Text Field 18',
     'AC3A': 'AC3 Text Field 19',
     'AC4A': 'AC4 Text Field 20',
-    'AC5A': 'AC5 Text Field 20',
-    'AC6A': 'AC6 Text Field 20',
+    # 2025 AC5* additional info belongs to 2026 AC5.1 (fields keep old AC6 naming);
+    # 2026 AC5's own info box ('AC5 Text Field 20') stays empty — new question.
+    'AC5A':   'AC6 Text Field 20',
+    'AC5AA':  'AC6 Text Field 20',
+    'AC5.1A': 'AC6 Text Field 20',
+    # 2025 AC6 (optional describe) → 2026 AC6 optional box, AC7-named field
+    'AC6A': 'AC7 Text Field 20',
     'AC7A': 'AC7 Text Field 20',
     'S1A':  'S1 Text Field 3',
     'S2A':  'S2 Text Field 4',
@@ -1485,13 +1505,18 @@ def _fill_pdf(subs):
         # ── EXPLICIT CHECKBOX MAP ─────────────────────────────────────────
         elif qid in CHECKBOX_MAP:
             q = CHECKBOX_MAP[qid]
-            for opt_norm, fname in q['fields'].items():
-                if _match(choice, opt_norm):
+            # _best_option so an exact key ("...own operations and suppliers") beats
+            # a shorter prefix-overlapping key ("...own operations"). Values may be
+            # a single field name or a list of field names (combined 2025 choices).
+            opt_keys = list(q['fields'].keys())
+            best_i = _best_option(choice, opt_keys)
+            if best_i >= 0:
+                fnames = q['fields'][opt_keys[best_i]]
+                for fname in (fnames if isinstance(fnames, list) else [fnames]):
                     if fname in _SHARED_V2_FIELDS and qid in _SHARED_V2_QPAGE:
                         shared_v2_pages.setdefault(fname, set()).add(_SHARED_V2_QPAGE[qid])
                     field_values[fname] = '/Yes'
-                    filled_qids.add(qid)
-                    break
+                filled_qids.add(qid)
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
@@ -1645,7 +1670,12 @@ def _fill_pdf(subs):
             if val:
                 # Collapse newlines to avoid overflowing fixed-height PDF fields
                 val = ' / '.join(part.strip() for part in val.splitlines() if part.strip())
-                field_values[TEXT_FIELDS[qid]] = val
+                tf = TEXT_FIELDS[qid]
+                # Append when several 2025 qids share one 2026 box (e.g. AC3A + AC3AA)
+                if field_values.get(tf):
+                    field_values[tf] = f"{field_values[tf]} / {val}"
+                else:
+                    field_values[tf] = val
                 filled_qids.add(qid)
 
     # Resolve radio_values {field_name: kid_index} → {field_name: on_state_str}
