@@ -408,6 +408,12 @@ MATRIX_RADIO = {
             'E1 Radio Button 8': 'E1 Text Field 7',   # Energy & resource use
             'E1 Radio Button 9': 'E1 Text Field 8',   # Other environmental topic(s)
         },
+        # Standalone "please provide a link/upload/additional information" box
+        # at the bottom of the page (p30, y=27) -- distinct from the 9 per-row
+        # year fields above. Found via RHB Bank test: E1A was wrongly aliased
+        # to 'E1 Text Field 1' (Climate change's own year field), corrupting
+        # it into "2023 / Energy and resource use is part of RHB's broader...".
+        'text_field': 'E1 Text Field 10',
     },
     # E3.1: progress monitoring per topic (9 rows × 5 options) — same columns as HR/L4.1
     'E3.1': {
@@ -1264,7 +1270,7 @@ TEXT_FIELDS = {
     'G13A':  'G14 Text Field 12',
     'G13AA': 'G14 Text Field 12',
     'G14A':  'G14 Text Field 12',
-    'E1A':  'E1 Text Field 1',
+    'E1A':  'E1 Text Field 10',  # standalone info box (p30, y=27) -- NOT the Climate-row year field
     'E4A':  'E4 Text Field 1',
     'E5A':  'E5 Text Field 7',
     'E6A':  'E6 Text Field 1',
