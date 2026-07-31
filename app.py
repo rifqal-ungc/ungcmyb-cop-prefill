@@ -1536,12 +1536,22 @@ def _fill_pdf(subs):
         # ── SEQUENTIAL CHECKBOXES ─────────────────────────────────────────
         elif qid in CHECKBOX_SEQ:
             q = CHECKBOX_SEQ[qid]
-            for i, opt in enumerate(q['options']):
-                if _match(choice, opt):
-                    n = q['start'] + i
-                    field_values[f"{q['prefix']} {n}"] = '/Yes'
-                    filled_qids.add(qid)
-                    break
+            # E9's 2025 source (old E8, "has the company taken steps to reduce
+            # fossil fuel consumption?") is a bare Yes/No with no sub-option
+            # detail, unlike 2026 E9's 7 specific choices. Bidirectional prefix
+            # matching would otherwise let a bare "yes" match the first
+            # "yes, we have set targets..." option purely by accident (as seen
+            # with RHB Bank: CHOICE='Yes' wrongly checked Check Box 13). Same
+            # reasoning as dropping the ambiguous "No" options earlier.
+            choice_n = _norm(choice)
+            skip_match = qid == 'E9' and choice_n in ('yes', 'no')
+            if not skip_match:
+                for i, opt in enumerate(q['options']):
+                    if _match(choice, opt):
+                        n = q['start'] + i
+                        field_values[f"{q['prefix']} {n}"] = '/Yes'
+                        filled_qids.add(qid)
+                        break
             if response and q.get('text_field'):
                 field_values[q['text_field']] = response
 
