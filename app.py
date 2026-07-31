@@ -73,6 +73,16 @@ def _match(a, b):
 ID_REMAP = {
     'G12': 'G13', 'G13': 'G14',
     'E5': 'E7', 'E7': 'E8', 'E8': 'E9', 'E10': 'E11', 'E11': 'E12',
+    'E12.1': 'E13', 'E14': 'E15',
+    # 2025 native E9 ("increased investment in low-carbon tech") has no reliable
+    # 2026 equivalent and, left unmapped, its qid would collide with the E8→E9
+    # remap above (both would end up tagged 'E9'). A company answering plain
+    # "Yes" here would then prefix-match the first fossil-fuel checkbox by
+    # accident. Route to a dead sentinel so it can never collide.
+    'E9': 'E9-2025-DROPPED',
+    # 2025 native E15 ("waste reduction actions") has no reliable 2026 equivalent
+    # either, and would otherwise collide with the E14→E15 air-pollutant remap.
+    'E15': 'E15-2025-DROPPED',
     # HR/L section: Excel may store without the "HR/" prefix
     'L2': 'HR/L2', 'L4.1': 'HR/L4.1', 'L5': 'HR/L5',
     'L6': 'HR/L6', 'L7': 'HR/L7',
@@ -1195,6 +1205,37 @@ WATER_FIELDS = {
     },
 }
 
+# GHG target validation (E7) — 2025 asked the same 5 rows (Scope 1/2/3 targets +
+# non-validated) with just a baseline/target year; 2026 added a short/medium/long
+# term dimension we have no 2025 data for. Fill only the baseline-year text field
+# per row; term-length checkboxes are left for the user to select manually.
+E7_BASELINE_FIELDS = {
+    'scope 1 targets validated by a third-party':               'E5 Text Field 24',
+    'scope 2 targets (market-based) validated by a third-party': 'E5 Text Field 19',
+    'scope 2 targets (location-based) validated by a third-party': 'E5 Text Field 18',
+    'scope 3 targets validated by a third-party':                'E5 Text Field 17',
+    'set targets are not validated by a third-party':            'E5 Text Field 7',
+}
+
+# Air pollutant emissions (2025 E14 → 2026 E15, same 13 pollutants, some relabelled).
+# Known (numeric) → text_field; Unknown → radio kid 0; Not applicable → radio kid 1
+# (same Unknown/Not-applicable radio convention as WATER_FIELDS above).
+AIR_POLLUTANT_FIELDS = {
+    'noₓ':                                        {'text_field': 'E14 Text Field 1',  'radio': 'E14 Radio Button 1'},
+    'soₓ':                                        {'text_field': 'E14 Text Field 2',  'radio': 'E14 Radio Button 2'},
+    'carbon monoxide (co)':                       {'text_field': 'E14 Text Field 3',  'radio': 'E14 Radio Button 3'},
+    'ammonia (nh₃)':                              {'text_field': 'E14 Text Field 4',  'radio': 'E14 Radio Button 4'},
+    'volatile organic compounds (vocs)':          {'text_field': 'E14 Text Field 5',  'radio': 'E14 Radio Button 5'},
+    'particulate matter (pm₁₀)':                  {'text_field': 'E14 Text Field 6',  'radio': 'E14 Radio Button 6'},
+    'primary pm₂.₅':                              {'text_field': 'E14 Text Field 7',  'radio': 'E14 Radio Button 7'},
+    'methane (ch₄)':                              {'text_field': 'E14 Text Field 8',  'radio': 'E14 Radio Button 8'},
+    'black carbon (bc)':                          {'text_field': 'E14 Text Field 9',  'radio': 'E14 Radio Button 9'},
+    'organic carbon (oc)':                        {'text_field': 'E14 Text Field 10', 'radio': 'E14 Radio Button 10'},
+    'hazardous air pollutants (haps)':            {'text_field': 'E14 Text Field 11', 'radio': 'E14 Radio Button 11'},
+    'persistent organic pollutants (pops)':       {'text_field': 'E14 Text Field 12', 'radio': 'E14 Radio Button 12'},
+    'other pollutants':                           {'text_field': 'E14 Text Field 13', 'radio': 'E14 Radio Button 13'},
+}
+
 TEXT_FIELDS = {
     'R2': 'Text Field R2',
     'R3': 'Text Field R3',
@@ -1202,7 +1243,8 @@ TEXT_FIELDS = {
     # G11 intentionally omitted: 2025 G11 is C-suite Women/Men choice rows, not a text field
     'E5': 'E5 Text Field 7',
     'E8': 'E8 v2 Text Field 14',   # climate adaptation additional info (E7 Check Box 6-11)
-    'E13': 'E13 Text Field 5',
+    # E13 intentionally omitted: 2025 E13 (KBA sites/hectares) has no 2026 equivalent
+    # (2026 repurposed E13 for water basin priority, fed by 2025 E12.1 → see ID_REMAP)
     'AC7': 'AC7 Text Field 20',
     # "A" suffix variants — same text field, different question_id in Excel
     'G2A':  'G2 Text Field 4',
@@ -1227,7 +1269,7 @@ TEXT_FIELDS = {
     'E6A':  'E6 Text Field 1',
     'E8A':  'E8 Text Field 1',
     # E9A omitted: 2025 E9 (renewable energy) has no 2026 equivalent; prevent text leaking into E10's additional-info box
-    'E13A': 'E13 Text Field 5',
+    # E13A omitted: 2025 E13 (KBA sites/hectares) has no 2026 equivalent
     'E14A': 'E14 Text Field 1',
     'E16A': 'E15 Text Field 14',
     'L2A':  'L2 Text Field 13',
@@ -1662,6 +1704,50 @@ def _fill_pdf(subs):
                     radio_values[wf['radio']] = 0
                 elif _match(choice, 'not applicable'):
                     radio_values[wf['radio']] = 1
+                filled_qids.add(qid)
+
+        # ── GHG TARGET VALIDATION (E7, was 2025 E5) — baseline year only ───
+        # 2026 added short/medium/long-term columns 2025 never asked about;
+        # those are left blank. Only the "Known (Baseline year)" choice rows
+        # carry data we can place with confidence.
+        elif qid == 'E7':
+            if _match(choice, 'known (baseline year)') and response:
+                subq_norm = _norm(s['subquestion'])
+                tf = next((v for k, v in E7_BASELINE_FIELDS.items() if _match(subq_norm, k)), None)
+                if tf:
+                    try:
+                        fv = float(response)
+                        field_values[tf] = str(int(fv)) if fv.is_integer() else str(fv)
+                    except ValueError:
+                        field_values[tf] = response
+                    filled_qids.add(qid)
+
+        # ── AIR POLLUTANT EMISSIONS (E15, was 2025 E14) ────────────────────
+        elif qid == 'E15':
+            pf = AIR_POLLUTANT_FIELDS.get(_remap_subq(s['subquestion']))
+            if pf:
+                if _match(choice, 'yes') and response:
+                    try:
+                        fv = float(response)
+                        field_values[pf['text_field']] = str(int(fv)) if fv.is_integer() else str(fv)
+                    except ValueError:
+                        field_values[pf['text_field']] = response
+                elif _match(choice, 'unknown'):
+                    radio_values[pf['radio']] = 0
+                elif _match(choice, 'not applicable'):
+                    radio_values[pf['radio']] = 1
+                filled_qids.add(qid)
+
+        # ── WATER BASIN PRIORITY (E13, was 2025 E12.1) ─────────────────────
+        # Only the top-level Known/Not-Applicable radio is filled; the
+        # per-basin engagement matrix (up to 10 basins) isn't captured in the
+        # 2025 data and is left for manual entry.
+        elif qid == 'E13':
+            if _match(choice, 'not applicable'):
+                radio_values['E12 Radio Button 1'] = 1
+                filled_qids.add(qid)
+            elif _match(choice, 'known'):
+                radio_values['E12 Radio Button 1'] = 0
                 filled_qids.add(qid)
 
         # ── TEXT FIELDS ───────────────────────────────────────────────────
